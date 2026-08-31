@@ -23,4 +23,13 @@
 
 ## 使用方式
 
-下載或打開 `index.html`，輸入 Google Apps Script 的 `/exec` 部署網址及連線密碼。按「儲存草稿」或「完成批改」時，資料會寫入指定試算表。
+### Windows 本機 AI 測試
+
+1. 確認 Codex App／CLI 已用 ChatGPT 帳號登入。
+2. 直接雙擊 `啟動網站.bat`（第一次會建立 `.venv`）；也可以用 PowerShell 執行 `啟動網站.ps1`。
+3. 瀏覽器會開啟 `http://127.0.0.1:8765`。
+4. 貼上作文後按「用 Codex 分析這篇作文」。本機後端會呼叫 Codex CLI，不需要在網站保存 API Key。
+
+這條路徑使用 Codex／ChatGPT 方案的 Codex 用量，適合本機單人測試；若未來公開部署，應改用 OpenAI API 與伺服器端 API Key。
+
+如要連接試算表，另輸入 Google Apps Script 的 `/exec` 部署網址及連線密碼。按「儲存草稿」或「完成批改」時，資料會寫入指定試算表。

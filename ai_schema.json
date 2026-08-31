@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["genre", "outline", "typos", "highlights", "life_experience", "suggestions", "boundary_reminder"],
+  "properties": {
+    "genre": { "type": "string" },
+    "outline": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["heading", "summary"],
+        "properties": {
+          "heading": { "type": "string" },
+          "summary": { "type": "string" }
+        }
+      }
+    },
+    "typos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["original", "suggestion", "reason"],
+        "properties": {
+          "original": { "type": "string" },
+          "suggestion": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "highlights": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["quote", "analysis"],
+        "properties": {
+          "quote": { "type": "string" },
+          "analysis": { "type": "string" }
+        }
+      }
+    },
+    "life_experience": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["quote", "analysis", "coach_response"],
+      "properties": {
+        "quote": { "type": "string" },
+        "analysis": { "type": "string" },
+        "coach_response": { "type": "string" }
+      }
+    },
+    "suggestions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "boundary_reminder": { "type": "string" }
+  }
+}

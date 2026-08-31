@@ -107,6 +107,16 @@
     .connection-help { margin: 0; color: var(--muted); font-size: 12px; }
     .connection-card.connected { border-color: #a7c7b6; background: var(--green-soft); }
     .connection-card.connected .connection-help { color: var(--green); }
+    .test-editor { margin-bottom: 16px; }
+    .test-editor summary { cursor: pointer; font-weight: 800; color: var(--green); }
+    .test-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+    .test-grid label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; font-weight: 700; }
+    .test-grid input, .test-grid textarea { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; color: var(--ink); background: #fff; }
+    .test-grid .wide { grid-column: 1 / -1; }
+    .test-grid textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
+    .ai-head-actions { display: flex; align-items: center; gap: 10px; }
+    .ai-loading { opacity: .7; pointer-events: none; }
+    .typo-item { margin: 7px 0; color: #7b3f25; }
 
     .ghost {
       border: 1px solid var(--line);
@@ -356,6 +366,8 @@
       .connection-wrap { margin-top: 12px; padding: 0 10px; }
       .connection-card { grid-template-columns: 1fr; }
       .connection-help { grid-column: 1; }
+      .test-grid { grid-template-columns: 1fr; }
+      .test-grid .wide { grid-column: 1; }
       .workspace { padding: 14px 10px 45px; gap: 14px; }
       .card { border-radius: 14px; }
       .meta { grid-template-columns: 1fr; }
@@ -395,6 +407,20 @@
 
   <main class="workspace">
     <div class="left-column">
+      <details class="card test-editor" open>
+        <summary>測試作文輸入</summary>
+        <div class="test-grid">
+          <label>年級<input id="testGrade" value="國小五年級"></label>
+          <label>作文題目<input id="testTitle" value="我最想留住的一天"></label>
+          <label class="wide">教學目標<input id="testGoal" value="用具體事件與感官細節表達感受"></label>
+          <label class="wide">作文內容<textarea id="testContent">那天早上，阿嬤帶我去市場。市場裡很熱鬧，魚販的冰塊亮晶晶的，賣菜的阿姨一直大聲招呼。阿嬤牽著我的手，手心暖暖的。
+
+我們買了我最喜歡的草莓。回家後，阿嬤教我把草莓切成小小的愛心。雖然有一顆被我切得歪歪的，她還是笑著說：「這顆最可愛。」
+
+傍晚我要回家時，阿嬤把剩下的草莓全塞進我的袋子。我希望時間可以停在那一天，因為長大以後，我可能就不能常常牽著阿嬤的手逛市場了。</textarea></label>
+          <button class="primary wide" type="button" id="analyzeButton">用 Codex 分析這篇作文</button>
+        </div>
+      </details>
       <section class="card meta" aria-label="作文基本資料">
         <div><b>作者</b>林語晴</div>
         <div><b>年級</b>國小五年級</div>
@@ -408,12 +434,12 @@
             <button class="tab active" id="originalTab" type="button" role="tab" aria-selected="true">原文</button>
             <button class="tab" id="outlineTab" type="button" role="tab" aria-selected="false">文章大綱</button>
           </div>
-          <small>155 字</small>
+          <small id="wordCount">155 字</small>
         </div>
 
         <div class="article-body original-panel" id="originalPanel" role="tabpanel">
-          <h1>我最想留住的一天</h1>
-          <nav class="paragraph-nav" aria-label="段落快速跳轉">
+          <h1 id="articleTitle">我最想留住的一天</h1>
+          <nav class="paragraph-nav" aria-label="段落快速跳轉" id="paragraphNav">
             <span>快速跳到</span>
             <button type="button" data-jump="0" aria-label="跳到第 1 段">1</button>
             <button type="button" data-jump="1" aria-label="跳到第 2 段">2</button>
@@ -424,7 +450,7 @@
             <p id="paragraph-1">我們買了我最喜歡的草莓。回家後，阿嬤教我把草莓切成小小的愛心。雖然有一顆被我切得歪歪的，她還是笑著說：「這顆最可愛。」</p>
             <p id="paragraph-2">傍晚我要回家時，阿嬤把剩下的草莓全塞進我的袋子。我希望時間可以停在那一天，因為長大以後，我可能就不能常常牽著阿嬤的手逛市場了。</p>
           </div>
-          <section class="typo-check" aria-label="錯字檢查">
+          <section class="typo-check" aria-label="錯字檢查" id="typoCheck">
             <div class="typo-title"><span>✎ 錯字檢查</span></div>
             <p class="no-typo">✓ 未發現明顯錯字</p>
           </section>
@@ -432,7 +458,7 @@
 
         <div class="article-body outline-panel" id="outlinePanel" role="tabpanel">
           <p class="outline-intro">點選任一段，會切回原文並移到對應位置。</p>
-          <ol class="outline-list">
+          <ol class="outline-list" id="outlineList">
             <li>
               <button class="outline-item" type="button" data-jump="0">
                 <span class="outline-number">1</span>
@@ -476,13 +502,13 @@
     <aside class="right-column">
       <section class="card" aria-label="AI 閱讀參考">
         <div class="ai-head">
-          <div><strong>◉ AI 閱讀參考</strong><small>AI 提供閱讀觀點，最後回應由教練完成</small></div>
-          <span class="genre">記敘文</span>
+          <div><strong>◉ AI 閱讀參考</strong><small id="aiStatus">AI 提供閱讀觀點，最後回應由教練完成</small></div>
+          <div class="ai-head-actions"><span class="genre" id="genreLabel">等待分析</span></div>
         </div>
 
-        <section class="reference-section">
+        <section class="reference-section" id="highlightsSection">
           <div class="reference-title"><span>✨</span><h3>亮點</h3><span class="count">3</span></div>
-          <article class="hint">
+          <div id="highlightsList"><article class="hint">
             <span class="quote">「魚販的冰塊亮晶晶的，賣菜的阿姨一直大聲招呼。」</span>
             <p>一亮一響的兩個細節，讓市場的熱鬧很快出現在讀者眼前。</p>
             <button class="adopt" type="button" data-quote="魚販的冰塊亮晶晶的，賣菜的阿姨一直大聲招呼。">採用原文</button>
@@ -496,12 +522,12 @@
             <span class="quote">「阿嬤把剩下的草莓全塞進我的袋子。」</span>
             <p>「塞」這個動作很自然，也讓阿嬤對孩子的疼愛不需要另外說明。</p>
             <button class="adopt" type="button" data-quote="阿嬤把剩下的草莓全塞進我的袋子。">採用原文</button>
-          </article>
+          </article></div>
         </section>
 
-        <section class="reference-section life-section">
+        <section class="reference-section life-section" id="lifeSection">
           <div class="reference-title"><span>🟡</span><h3>生命經驗</h3><span class="count">1</span></div>
-          <article class="life">
+          <article class="life" id="lifeCard">
             <span class="quote">「阿嬤牽著我的手，手心暖暖的。」</span>
             <p><b>AI 閱讀：</b>這個小細節讓人感受到作者和阿嬤相處時的親近。</p>
             <aside class="coach-reference">
@@ -522,7 +548,7 @@
 
         <section class="reference-section">
           <div class="reference-title"><span>🌿</span><h3>回應／界線提醒</h3><span class="count">1</span></div>
-          <ul class="reminder"><li>文章已經用幾個小動作呈現和阿嬤相處的感受，回應時不需要替作者加上一個更大的道理。</li></ul>
+          <ul class="reminder" id="boundaryList"><li>按下「用 Codex 分析這篇作文」取得提醒。</li></ul>
           <small class="reminder-note">只供教練參考，不會加入「我的評語」。</small>
         </section>
       </section>
@@ -555,16 +581,154 @@
       const webAppUrl = document.getElementById('webAppUrl');
       const accessKey = document.getElementById('accessKey');
       const connectButton = document.getElementById('connectButton');
+      const analyzeButton = document.getElementById('analyzeButton');
+      const aiCard = document.querySelector('[aria-label="AI 閱讀參考"]');
+      const aiStatus = document.getElementById('aiStatus');
+      const genreLabel = document.getElementById('genreLabel');
+      const testGrade = document.getElementById('testGrade');
+      const testTitle = document.getElementById('testTitle');
+      const testGoal = document.getElementById('testGoal');
+      const testContent = document.getElementById('testContent');
       let sheetEndpoint = '';
       let toastTimer;
       let saveTimer;
 
-      const suggestions = [
+      let suggestions = [
         '如果只多寫一個地方，可以補一點離開市場時，自己回頭看見或聽見的畫面，讓「想留住」更有感覺。',
         '可以看看結尾的「長大以後」是否要再接回前面某個小動作，讓這份不捨和整篇文章連得更緊。',
         '第二段已經有阿嬤說的話，也可以補上自己當時做了什麼，讓兩人的互動再完整一點。'
       ];
       let suggestionIndex = 0;
+
+      const escapeHtml = (value) => String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+
+      const bindJumpButtons = () => {
+        document.querySelectorAll('[data-jump]').forEach((button) => {
+          button.onclick = () => jumpToParagraph(Number(button.dataset.jump));
+        });
+      };
+
+      const addQuoteToComment = (quote) => {
+        const text = quoted(quote);
+        if (comment.value.includes(text)) return;
+        const start = comment.selectionStart ?? comment.value.length;
+        const end = comment.selectionEnd ?? start;
+        const before = comment.value.slice(0, start);
+        const after = comment.value.slice(end);
+        const prefix = before && !before.endsWith('\n') ? '\n' : '';
+        const suffix = after && !after.startsWith('\n') ? '\n' : '';
+        comment.value = `${before}${prefix}${text}${suffix}${after}`;
+        const caret = (before + prefix + text).length;
+        updateCount();
+        persistDraft();
+        comment.focus();
+        comment.setSelectionRange(caret, caret);
+        window.showToast('已把原文加入「我的評語」');
+      };
+
+      const bindAdoptButtons = () => {
+        document.querySelectorAll('.adopt[data-quote]').forEach((button) => {
+          button.onclick = () => addQuoteToComment(button.dataset.quote);
+        });
+        updateAdoptButtons();
+      };
+
+      const updateEssayPreview = () => {
+        const content = testContent.value.trim();
+        const paragraphs = content.split(/\n\s*\n/).filter(Boolean);
+        ESSAY.grade = testGrade.value.trim();
+        ESSAY.title = testTitle.value.trim();
+        ESSAY.goal = testGoal.value.trim();
+        ESSAY.content = content;
+        document.getElementById('articleTitle').textContent = ESSAY.title || '未命名作文';
+        document.getElementById('wordCount').textContent = `${content.replace(/\s/g, '').length} 字`;
+        document.getElementById('essayText').innerHTML = paragraphs
+          .map((paragraph, index) => `<p id="paragraph-${index}">${escapeHtml(paragraph)}</p>`).join('');
+        document.getElementById('paragraphNav').innerHTML = '<span>快速跳到</span>' + paragraphs
+          .map((_, index) => `<button type="button" data-jump="${index}" aria-label="跳到第 ${index + 1} 段">${index + 1}</button>`).join('');
+        bindJumpButtons();
+      };
+
+      const renderAnalysis = (analysis) => {
+        genreLabel.textContent = analysis.genre || '作文';
+        const highlights = Array.isArray(analysis.highlights) ? analysis.highlights : [];
+        document.querySelector('#highlightsSection .count').textContent = highlights.length;
+        document.getElementById('highlightsList').innerHTML = highlights.map((item) => `
+          <article class="hint">
+            <span class="quote">「${escapeHtml(item.quote)}」</span>
+            <p>${escapeHtml(item.analysis)}</p>
+            <button class="adopt" type="button" data-quote="${escapeHtml(item.quote)}">採用原文</button>
+          </article>`).join('') || '<p class="connection-help">這次沒有找到適合摘錄的亮點。</p>';
+
+        const life = analysis.life_experience || {};
+        document.getElementById('lifeCard').innerHTML = `
+          <span class="quote">「${escapeHtml(life.quote || '')}」</span>
+          <p><b>AI 閱讀：</b>${escapeHtml(life.analysis || '')}</p>
+          <aside class="coach-reference"><b>✎ 教練可以怎麼寫</b><p>${escapeHtml(life.coach_response || '')}</p><small>寫法參考，不會自動加入評語</small></aside>
+          <button class="adopt" type="button" data-quote="${escapeHtml(life.quote || '')}">採用原文</button>`;
+
+        suggestions = Array.isArray(analysis.suggestions) && analysis.suggestions.length ? analysis.suggestions : ['目前沒有建議。'];
+        suggestionIndex = 0;
+        document.getElementById('suggestionText').textContent = suggestions[0];
+        document.getElementById('boundaryList').innerHTML = `<li>${escapeHtml(analysis.boundary_reminder || '保持貼近原文。')}</li>`;
+
+        const typos = Array.isArray(analysis.typos) ? analysis.typos : [];
+        document.getElementById('typoCheck').innerHTML = typos.length
+          ? `<div class="typo-title"><span>✎ 錯字檢查</span></div>${typos.map((item) => `<p class="typo-item"><b>${escapeHtml(item.original)} → ${escapeHtml(item.suggestion)}</b>：${escapeHtml(item.reason)}</p>`).join('')}`
+          : '<div class="typo-title"><span>✎ 錯字檢查</span></div><p class="no-typo">✓ 未發現明顯錯字</p>';
+
+        const outline = Array.isArray(analysis.outline) ? analysis.outline : [];
+        document.getElementById('outlineList').innerHTML = outline.map((item, index) => `
+          <li><button class="outline-item" type="button" data-jump="${index}">
+            <span class="outline-number">${index + 1}</span>
+            <span class="outline-copy"><b>第 ${index + 1} 段｜${escapeHtml(item.heading)}</b><small>${escapeHtml(item.summary)}</small></span>
+            <span class="outline-arrow">→</span>
+          </button></li>`).join('');
+        bindJumpButtons();
+        bindAdoptButtons();
+      };
+
+      const analyzeEssay = async () => {
+        updateEssayPreview();
+        if (!ESSAY.title || !ESSAY.content) {
+          window.showToast('請先填寫作文題目與內容');
+          return;
+        }
+        analyzeButton.disabled = true;
+        analyzeButton.textContent = 'Codex 分析中，請稍等…';
+        aiCard.classList.add('ai-loading');
+        aiStatus.textContent = '正在呼叫本機 Codex，通常需要 30～90 秒';
+        genreLabel.textContent = '分析中';
+        try {
+          const response = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(ESSAY)
+          });
+          const result = await response.json();
+          if (!response.ok || !result.ok) throw new Error(result.error || 'AI 分析失敗');
+          renderAnalysis(result.analysis);
+          localStorage.setItem('cl3-test-grade', ESSAY.grade);
+          localStorage.setItem('cl3-test-title', ESSAY.title);
+          localStorage.setItem('cl3-test-goal', ESSAY.goal);
+          localStorage.setItem('cl3-test-content', ESSAY.content);
+          aiStatus.textContent = 'Codex 已完成分析，最後回應仍由教練決定';
+          window.showToast('AI 分析完成');
+        } catch (error) {
+          genreLabel.textContent = '分析失敗';
+          aiStatus.textContent = error.message || '請確認本機伺服器與 Codex 登入狀態';
+          window.showToast('AI 分析失敗');
+        } finally {
+          analyzeButton.disabled = false;
+          analyzeButton.textContent = '用 Codex 分析這篇作文';
+          aiCard.classList.remove('ai-loading');
+        }
+      };
 
       window.showToast = (message) => {
         toast.textContent = message;
@@ -768,29 +932,8 @@
 
       originalTab.addEventListener('click', showOriginal);
       outlineTab.addEventListener('click', showOutline);
-      document.querySelectorAll('[data-jump]').forEach((button) => {
-        button.addEventListener('click', () => jumpToParagraph(Number(button.dataset.jump)));
-      });
-
-      document.querySelectorAll('.adopt[data-quote]').forEach((button) => {
-        button.addEventListener('click', () => {
-          const text = quoted(button.dataset.quote);
-          if (comment.value.includes(text)) return;
-          const start = comment.selectionStart ?? comment.value.length;
-          const end = comment.selectionEnd ?? start;
-          const before = comment.value.slice(0, start);
-          const after = comment.value.slice(end);
-          const prefix = before && !before.endsWith('\n') ? '\n' : '';
-          const suffix = after && !after.startsWith('\n') ? '\n' : '';
-          comment.value = `${before}${prefix}${text}${suffix}${after}`;
-          const caret = (before + prefix + text).length;
-          updateCount();
-          persistDraft();
-          comment.focus();
-          comment.setSelectionRange(caret, caret);
-          window.showToast('已把原文加入「我的評語」');
-        });
-      });
+      bindJumpButtons();
+      bindAdoptButtons();
 
       comment.addEventListener('input', () => {
         updateCount();
@@ -810,6 +953,7 @@
         document.getElementById('suggestionText').textContent = suggestions[suggestionIndex];
         window.showToast(`已切換到建議 ${suggestionIndex + 1}`);
       });
+      analyzeButton.addEventListener('click', analyzeEssay);
 
       connectButton.addEventListener('click', () => connectToSheet());
       webAppUrl.addEventListener('keydown', (event) => {
@@ -840,6 +984,11 @@
         score.value = localStorage.getItem('cl3-demo-score') || '';
         webAppUrl.value = localStorage.getItem('cl3-google-web-app-url') || '';
         accessKey.value = localStorage.getItem('cl3-google-access-key') || '';
+        testGrade.value = localStorage.getItem('cl3-test-grade') || testGrade.value;
+        testTitle.value = localStorage.getItem('cl3-test-title') || testTitle.value;
+        testGoal.value = localStorage.getItem('cl3-test-goal') || testGoal.value;
+        testContent.value = localStorage.getItem('cl3-test-content') || testContent.value;
+        updateEssayPreview();
         if (webAppUrl.value && accessKey.value) window.setTimeout(() => connectToSheet(true), 0);
         else setConnectionState('請輸入後台網址與連線密碼。');
       } catch (_) {}
