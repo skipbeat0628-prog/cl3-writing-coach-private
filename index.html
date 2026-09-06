@@ -368,6 +368,12 @@
     }
 
     .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .replace-dialog { width: min(460px, calc(100% - 32px)); padding: 0; border: 0; border-radius: 16px; color: var(--ink); box-shadow: 0 24px 80px rgba(20, 38, 29, .28); }
+    .replace-dialog::backdrop { background: rgba(26, 43, 35, .42); backdrop-filter: blur(2px); }
+    .replace-dialog-content { padding: 24px; }
+    .replace-dialog h2 { margin: 0 0 8px; font-size: 20px; }
+    .replace-dialog p { margin: 0; color: var(--muted); line-height: 1.7; }
+    .replace-dialog-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 22px; }
 
     @media (max-width: 960px) {
       .workspace { grid-template-columns: 1fr; }
@@ -431,6 +437,7 @@
           <label class="wide">教學目標<input id="testGoal" value="用具體事件與感官細節表達感受"></label>
           <div class="import-row" id="importDropZone">
             <button class="ghost" type="button" id="importButton">匯入文章檔案</button>
+            <button class="ghost" type="button" id="newArticleButton">清空並新增文章</button>
             <input id="articleFile" type="file" accept=".txt,.md,.docx" hidden>
             <small id="importStatus">支援 TXT、Markdown、DOCX；也可以把檔案拖到這裡。</small>
           </div>
@@ -617,6 +624,16 @@
   </main>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <dialog class="replace-dialog" id="replaceDialog">
+    <div class="replace-dialog-content">
+      <h2>要開始批改新文章嗎？</h2>
+      <p>這會清除畫面上目前的 AI 分析、老師重點、評語與分數。年級、教學目標和試算表連線會保留。</p>
+      <div class="replace-dialog-actions">
+        <button class="ghost" type="button" id="cancelReplaceButton">取消</button>
+        <button class="primary" type="button" id="confirmReplaceButton">繼續並清除</button>
+      </div>
+    </div>
+  </dialog>
 
   <script>
     (() => {
@@ -662,9 +679,11 @@
       const intentNote = document.getElementById('intentNote');
       const enrichedComment = document.getElementById('enrichedComment');
       const importButton = document.getElementById('importButton');
+      const newArticleButton = document.getElementById('newArticleButton');
       const articleFile = document.getElementById('articleFile');
       const importDropZone = document.getElementById('importDropZone');
       const importStatus = document.getElementById('importStatus');
+      const replaceDialog = document.getElementById('replaceDialog');
       let sheetEndpoint = '';
       let lastDiscoveryGenre = '';
       let toastTimer;
@@ -676,6 +695,9 @@
         '第二段已經有阿嬤說的話，也可以補上自己當時做了什麼，讓兩人的互動再完整一點。'
       ];
       let suggestionIndex = 0;
+
+      const draftKey = (name) => `cl3-essay-${ESSAY.id}-${name}`;
+      const createEssayId = () => `ESSAY-${(window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`).slice(0, 8).toUpperCase()}`;
 
       const autoGrow = (field) => {
         if (!field) return;
@@ -743,7 +765,7 @@
         if (!lines.includes(clean)) lines.push(clean);
         teacherFocus.value = lines.join('\n');
         autoGrow(teacherFocus);
-        localStorage.setItem('cl3-teacher-focus', teacherFocus.value);
+        localStorage.setItem(draftKey('teacher-focus'), teacherFocus.value);
         setMode('enrich');
         teacherFocus.focus();
         window.showToast('已加入老師批改重點');
@@ -753,6 +775,67 @@
         document.querySelectorAll('.transfer[data-focus]').forEach((button) => {
           button.onclick = () => appendTeacherFocus(button.dataset.focus);
         });
+      };
+
+      const resetFindResults = () => {
+        lastDiscoveryGenre = '';
+        genreLabel.textContent = '等待分析';
+        aiStatus.textContent = '請按「用 Codex 分析這篇作文」取得閱讀觀點';
+        document.querySelector('#highlightsSection .count').textContent = '0';
+        document.getElementById('highlightsList').innerHTML = '<p class="connection-help">尚未分析這篇作文。</p>';
+        document.getElementById('lifeCard').innerHTML = '<p class="connection-help">完成找點分析後，這裡會顯示文章中的生命經驗。</p>';
+        suggestions = ['完成找點分析後，這裡會顯示下一步建議。'];
+        suggestionIndex = 0;
+        document.getElementById('suggestionText').textContent = suggestions[0];
+        document.getElementById('boundaryList').innerHTML = '<li>完成找點分析後，這裡會顯示回應提醒。</li>';
+        document.getElementById('typoCheck').innerHTML = '<div class="typo-title"><span>✎ 錯字檢查</span></div><p class="connection-help">尚未分析。</p>';
+        document.getElementById('outlineList').innerHTML = '<li class="connection-help">完成找點分析後，這裡會顯示文章大綱。</li>';
+      };
+
+      const hasCurrentReviewWork = () => Boolean(
+        testTitle.value.trim() || testContent.value.trim() || comment.value.trim() || score.value ||
+        teacherFocus.value.trim() || enrichedComment.value.trim() || lastDiscoveryGenre
+      );
+
+      const confirmReplaceArticle = () => {
+        if (!hasCurrentReviewWork()) return Promise.resolve(true);
+        replaceDialog.showModal();
+        return new Promise((resolve) => {
+          const finish = (confirmed) => {
+            replaceDialog.close();
+            resolve(confirmed);
+          };
+          document.getElementById('cancelReplaceButton').onclick = () => finish(false);
+          document.getElementById('confirmReplaceButton').onclick = () => finish(true);
+          replaceDialog.oncancel = (event) => {
+            event.preventDefault();
+            finish(false);
+          };
+        });
+      };
+
+      const resetForNewArticle = () => {
+        ESSAY.id = createEssayId();
+        localStorage.setItem('cl3-current-essay-id', ESSAY.id);
+        comment.value = '';
+        score.value = '';
+        teacherFocus.value = '';
+        enrichedComment.value = '';
+        effectiveGenre.textContent = '尚未生成';
+        enrichStatus.textContent = '你決定方向，AI 協助整理成孩子讀得懂的完整評語';
+        intentNote.textContent = '';
+        intentNote.classList.add('hidden');
+        resetFindResults();
+        updateCount();
+        [comment, teacherFocus, enrichedComment].forEach(autoGrow);
+        setMode('find');
+      };
+
+      const saveCurrentArticle = () => {
+        localStorage.setItem('cl3-test-grade', testGrade.value);
+        localStorage.setItem('cl3-test-title', testTitle.value);
+        localStorage.setItem('cl3-test-goal', testGoal.value);
+        localStorage.setItem('cl3-test-content', testContent.value);
       };
 
       const updateEssayPreview = () => {
@@ -777,6 +860,11 @@
 
       const importArticleFile = async (file) => {
         if (!file) return;
+        if (!(await confirmReplaceArticle())) {
+          articleFile.value = '';
+          importStatus.textContent = '已取消匯入，目前批改內容保持不變。';
+          return;
+        }
         importButton.disabled = true;
         importStatus.textContent = `正在匯入 ${file.name}…`;
         try {
@@ -790,11 +878,11 @@
           });
           const result = await response.json();
           if (!response.ok || !result.ok) throw new Error(result.error || '文章匯入失敗');
+          resetForNewArticle();
           testTitle.value = result.article.title || testTitle.value;
           testContent.value = result.article.content;
           updateEssayPreview();
-          localStorage.setItem('cl3-test-title', testTitle.value);
-          localStorage.setItem('cl3-test-content', testContent.value);
+          saveCurrentArticle();
           importStatus.textContent = `已匯入 ${file.name}，共 ${testContent.value.replace(/\s/g, '').length} 字。`;
           window.showToast('文章匯入完成');
         } catch (error) {
@@ -921,9 +1009,9 @@
           intentNote.textContent = `AI 理解的老師意圖：${enrichment.intent_summary || '依照輸入重點整理評語'}`;
           intentNote.classList.remove('hidden');
           enrichStatus.textContent = '已完成；請確認並修改後再套用為最終評語';
-          localStorage.setItem('cl3-teacher-focus', teacherFocus.value);
+          localStorage.setItem(draftKey('teacher-focus'), teacherFocus.value);
           localStorage.setItem('cl3-enrich-genre', genreSelect.value);
-          localStorage.setItem('cl3-enriched-comment', enrichedComment.value);
+          localStorage.setItem(draftKey('enriched-comment'), enrichedComment.value);
           window.showToast('評語已豐富完成');
         } catch (error) {
           effectiveGenre.textContent = '生成失敗';
@@ -1127,8 +1215,8 @@
 
       const persistDraft = (notify = false) => {
         try {
-          localStorage.setItem('cl3-demo-comment', comment.value);
-          localStorage.setItem('cl3-demo-score', score.value);
+          localStorage.setItem(draftKey('comment'), comment.value);
+          localStorage.setItem(draftKey('score'), score.value);
           saveStatus.textContent = '已自動儲存';
           if (notify) window.showToast('草稿已儲存');
         } catch (_) {
@@ -1145,12 +1233,12 @@
       enrichModeButton.addEventListener('click', () => setMode('enrich'));
       enrichButton.addEventListener('click', enrichComment);
       teacherFocus.addEventListener('input', () => {
-        localStorage.setItem('cl3-teacher-focus', teacherFocus.value);
+        localStorage.setItem(draftKey('teacher-focus'), teacherFocus.value);
         autoGrow(teacherFocus);
       });
       genreSelect.addEventListener('change', () => localStorage.setItem('cl3-enrich-genre', genreSelect.value));
       enrichedComment.addEventListener('input', () => {
-        localStorage.setItem('cl3-enriched-comment', enrichedComment.value);
+        localStorage.setItem(draftKey('enriched-comment'), enrichedComment.value);
         autoGrow(enrichedComment);
       });
       document.getElementById('transferSuggestion').addEventListener('click', () => appendTeacherFocus(document.getElementById('suggestionText').textContent));
@@ -1195,6 +1283,17 @@
       });
       analyzeButton.addEventListener('click', analyzeEssay);
       importButton.addEventListener('click', () => articleFile.click());
+      newArticleButton.addEventListener('click', async () => {
+        if (!(await confirmReplaceArticle())) return;
+        resetForNewArticle();
+        testTitle.value = '';
+        testContent.value = '';
+        updateEssayPreview();
+        saveCurrentArticle();
+        importStatus.textContent = '已建立新的空白作文，可直接輸入或匯入檔案。';
+        testTitle.focus();
+        window.showToast('已建立新文章');
+      });
       articleFile.addEventListener('change', () => importArticleFile(articleFile.files[0]));
       ['dragenter', 'dragover'].forEach((eventName) => importDropZone.addEventListener(eventName, (event) => {
         event.preventDefault();
@@ -1205,6 +1304,10 @@
         importDropZone.classList.remove('dragging');
       }));
       importDropZone.addEventListener('drop', (event) => importArticleFile(event.dataTransfer.files[0]));
+      [testGrade, testTitle, testGoal, testContent].forEach((field) => field.addEventListener('input', () => {
+        updateEssayPreview();
+        saveCurrentArticle();
+      }));
 
       connectButton.addEventListener('click', () => connectToSheet());
       webAppUrl.addEventListener('keydown', (event) => {
@@ -1231,17 +1334,25 @@
       });
 
       try {
-        comment.value = localStorage.getItem('cl3-demo-comment') || '';
-        score.value = localStorage.getItem('cl3-demo-score') || '';
+        ESSAY.id = localStorage.getItem('cl3-current-essay-id') || ESSAY.id;
+        localStorage.setItem('cl3-current-essay-id', ESSAY.id);
+        resetFindResults();
+        comment.value = localStorage.getItem(draftKey('comment')) ?? localStorage.getItem('cl3-demo-comment') ?? '';
+        score.value = localStorage.getItem(draftKey('score')) ?? localStorage.getItem('cl3-demo-score') ?? '';
         webAppUrl.value = localStorage.getItem('cl3-google-web-app-url') || '';
         accessKey.value = localStorage.getItem('cl3-google-access-key') || '';
         testGrade.value = localStorage.getItem('cl3-test-grade') || testGrade.value;
         testTitle.value = localStorage.getItem('cl3-test-title') || testTitle.value;
         testGoal.value = localStorage.getItem('cl3-test-goal') || testGoal.value;
         testContent.value = localStorage.getItem('cl3-test-content') || testContent.value;
-        teacherFocus.value = localStorage.getItem('cl3-teacher-focus') || '';
+        teacherFocus.value = localStorage.getItem(draftKey('teacher-focus')) ?? localStorage.getItem('cl3-teacher-focus') ?? '';
         genreSelect.value = localStorage.getItem('cl3-enrich-genre') || '自動判斷';
-        enrichedComment.value = localStorage.getItem('cl3-enriched-comment') || '';
+        enrichedComment.value = localStorage.getItem(draftKey('enriched-comment')) ?? localStorage.getItem('cl3-enriched-comment') ?? '';
+        localStorage.setItem(draftKey('comment'), comment.value);
+        localStorage.setItem(draftKey('score'), score.value);
+        localStorage.setItem(draftKey('teacher-focus'), teacherFocus.value);
+        localStorage.setItem(draftKey('enriched-comment'), enrichedComment.value);
+        ['cl3-demo-comment', 'cl3-demo-score', 'cl3-teacher-focus', 'cl3-enriched-comment'].forEach((key) => localStorage.removeItem(key));
         setMode(localStorage.getItem('cl3-ai-mode') === 'enrich' ? 'enrich' : 'find');
         updateEssayPreview();
         [testContent, teacherFocus, enrichedComment, comment].forEach(autoGrow);
