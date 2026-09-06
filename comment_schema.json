@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["detected_genre", "effective_genre", "intent_summary", "preserved_points", "final_comment"],
+  "properties": {
+    "detected_genre": { "type": "string" },
+    "effective_genre": { "type": "string" },
+    "intent_summary": { "type": "string" },
+    "preserved_points": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "final_comment": { "type": "string" }
+  }
+}

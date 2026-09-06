@@ -117,6 +117,18 @@
     .ai-head-actions { display: flex; align-items: center; gap: 10px; }
     .ai-loading { opacity: .7; pointer-events: none; }
     .typo-item { margin: 7px 0; color: #7b3f25; }
+    .mode-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 16px; padding: 4px; border-radius: 11px; background: #edf1ed; }
+    .mode-switch button { border: 0; border-radius: 8px; padding: 9px 10px; color: var(--muted); background: transparent; cursor: pointer; font-weight: 800; }
+    .mode-switch button.active { color: var(--green); background: #fff; box-shadow: 0 1px 5px rgba(25, 55, 44, .12); }
+    .mode-panel.hidden { display: none; }
+    .focus-field { display: grid; gap: 7px; margin: 14px 0; }
+    .focus-field label { color: var(--ink); font-size: 13px; font-weight: 800; }
+    .focus-field textarea, .focus-field select { width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: 10px 11px; color: var(--ink); background: #fff; }
+    .focus-field textarea { min-height: 150px; resize: vertical; line-height: 1.7; }
+    .enrich-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .enriched-result { min-height: 260px !important; }
+    .intent-note { margin: 10px 0; padding: 10px 12px; border-left: 3px solid var(--gold); background: #fffaf0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+    .transfer { margin-left: auto; border: 1px solid #d7b66a; border-radius: 999px; padding: 4px 9px; color: #74571b; background: #fffaf0; cursor: pointer; font-size: 12px; font-weight: 800; }
 
     .ghost {
       border: 1px solid var(--line);
@@ -423,9 +435,9 @@
       </details>
       <section class="card meta" aria-label="作文基本資料">
         <div><b>作者</b>林語晴</div>
-        <div><b>年級</b>國小五年級</div>
-        <div><b>題目</b>我最想留住的一天</div>
-        <div class="goal"><b>教學目標</b>用具體事件與感官細節表達感受</div>
+        <div><b>年級</b><span id="metaGrade">國小五年級</span></div>
+        <div><b>題目</b><span id="metaTitle">我最想留住的一天</span></div>
+        <div class="goal"><b>教學目標</b><span id="metaGoal">用具體事件與感官細節表達感受</span></div>
       </section>
 
       <article class="card">
@@ -501,13 +513,18 @@
 
     <aside class="right-column">
       <section class="card" aria-label="AI 閱讀參考">
+        <nav class="mode-switch" aria-label="AI 批改模式">
+          <button class="active" type="button" id="findModeButton" aria-pressed="true">找點模式</button>
+          <button type="button" id="enrichModeButton" aria-pressed="false">評語豐富模式</button>
+        </nav>
+        <div class="mode-panel" id="findModePanel">
         <div class="ai-head">
           <div><strong>◉ AI 閱讀參考</strong><small id="aiStatus">AI 提供閱讀觀點，最後回應由教練完成</small></div>
           <div class="ai-head-actions"><span class="genre" id="genreLabel">等待分析</span></div>
         </div>
 
         <section class="reference-section" id="highlightsSection">
-          <div class="reference-title"><span>✨</span><h3>亮點</h3><span class="count">3</span></div>
+          <div class="reference-title"><span>✨</span><h3>亮點</h3><span class="count">3</span><button class="transfer" type="button" data-focus="我想肯定文章裡具體而真實的亮點">加入重點</button></div>
           <div id="highlightsList"><article class="hint">
             <span class="quote">「魚販的冰塊亮晶晶的，賣菜的阿姨一直大聲招呼。」</span>
             <p>一亮一響的兩個細節，讓市場的熱鬧很快出現在讀者眼前。</p>
@@ -526,7 +543,7 @@
         </section>
 
         <section class="reference-section life-section" id="lifeSection">
-          <div class="reference-title"><span>🟡</span><h3>生命經驗</h3><span class="count">1</span></div>
+          <div class="reference-title"><span>🟡</span><h3>生命經驗</h3><span class="count">1</span><button class="transfer" type="button" data-focus="我想回應文章中的生命經驗與真實感受">加入重點</button></div>
           <article class="life" id="lifeCard">
             <span class="quote">「阿嬤牽著我的手，手心暖暖的。」</span>
             <p><b>AI 閱讀：</b>這個小細節讓人感受到作者和阿嬤相處時的親近。</p>
@@ -540,7 +557,7 @@
         </section>
 
         <section class="reference-section">
-          <div class="reference-title"><span>👣</span><h3>前方一小步</h3><span class="count">1</span><button class="swap" type="button" id="swapSuggestion">↻ 換一個建議</button></div>
+          <div class="reference-title"><span>👣</span><h3>前方一小步</h3><span class="count">1</span><button class="swap" type="button" id="swapSuggestion">↻ 換一個建議</button><button class="transfer" type="button" id="transferSuggestion">加入重點</button></div>
           <article class="suggestion">
             <p class="suggestion-text" id="suggestionText">如果只多寫一個地方，可以補一點離開市場時，自己回頭看見或聽見的畫面，讓「想留住」更有感覺。</p>
           </article>
@@ -551,6 +568,41 @@
           <ul class="reminder" id="boundaryList"><li>按下「用 Codex 分析這篇作文」取得提醒。</li></ul>
           <small class="reminder-note">只供教練參考，不會加入「我的評語」。</small>
         </section>
+        </div>
+
+        <div class="mode-panel hidden" id="enrichModePanel">
+          <div class="ai-head">
+            <div><strong>✦ 評語豐富</strong><small id="enrichStatus">你決定方向，AI 協助整理成孩子讀得懂的完整評語</small></div>
+            <span class="genre" id="effectiveGenre">尚未生成</span>
+          </div>
+          <div class="focus-field">
+            <label for="genreSelect">作文文體</label>
+            <select id="genreSelect">
+              <option>自動判斷</option>
+              <option>記敘文</option>
+              <option>抒情文</option>
+              <option>說明文</option>
+              <option>議論文</option>
+              <option>故事／創作</option>
+              <option>其他／混合</option>
+            </select>
+          </div>
+          <div class="focus-field">
+            <label for="teacherFocus">我想對學生說的重點</label>
+            <textarea id="teacherFocus" maxlength="5000" placeholder="可以輸入條列、關鍵字或短句，例如：&#10;開頭很好，很自然&#10;中間景色有點太多&#10;想叫他多寫跟爸爸講話&#10;喜歡最後那個感覺&#10;結尾鼓勵一下"></textarea>
+            <small class="connection-help">只會發展你寫下或從找點模式選入的方向，不會偷偷增加其他批評。</small>
+          </div>
+          <button class="primary" type="button" id="enrichButton">豐富評語</button>
+          <div class="intent-note hidden" id="intentNote"></div>
+          <div class="focus-field">
+            <label for="enrichedComment">AI 生成結果（可直接修改）</label>
+            <textarea class="enriched-result" id="enrichedComment" maxlength="5000" placeholder="生成後的評語會出現在這裡，你仍可自由修改。"></textarea>
+          </div>
+          <div class="enrich-actions">
+            <button class="primary" type="button" id="applyEnrichedButton">套用到「我的評語」</button>
+            <button class="ghost" type="button" id="copyEnrichedButton">複製評語</button>
+          </div>
+        </div>
       </section>
     </aside>
   </main>
@@ -589,7 +641,19 @@
       const testTitle = document.getElementById('testTitle');
       const testGoal = document.getElementById('testGoal');
       const testContent = document.getElementById('testContent');
+      const findModeButton = document.getElementById('findModeButton');
+      const enrichModeButton = document.getElementById('enrichModeButton');
+      const findModePanel = document.getElementById('findModePanel');
+      const enrichModePanel = document.getElementById('enrichModePanel');
+      const genreSelect = document.getElementById('genreSelect');
+      const teacherFocus = document.getElementById('teacherFocus');
+      const enrichButton = document.getElementById('enrichButton');
+      const enrichStatus = document.getElementById('enrichStatus');
+      const effectiveGenre = document.getElementById('effectiveGenre');
+      const intentNote = document.getElementById('intentNote');
+      const enrichedComment = document.getElementById('enrichedComment');
       let sheetEndpoint = '';
+      let lastDiscoveryGenre = '';
       let toastTimer;
       let saveTimer;
 
@@ -638,6 +702,35 @@
         updateAdoptButtons();
       };
 
+      const setMode = (mode) => {
+        const isFind = mode === 'find';
+        findModePanel.classList.toggle('hidden', !isFind);
+        enrichModePanel.classList.toggle('hidden', isFind);
+        findModeButton.classList.toggle('active', isFind);
+        enrichModeButton.classList.toggle('active', !isFind);
+        findModeButton.setAttribute('aria-pressed', String(isFind));
+        enrichModeButton.setAttribute('aria-pressed', String(!isFind));
+        localStorage.setItem('cl3-ai-mode', mode);
+      };
+
+      const appendTeacherFocus = (text) => {
+        const clean = String(text || '').trim();
+        if (!clean) return;
+        const lines = teacherFocus.value.split('\n').map((line) => line.trim()).filter(Boolean);
+        if (!lines.includes(clean)) lines.push(clean);
+        teacherFocus.value = lines.join('\n');
+        localStorage.setItem('cl3-teacher-focus', teacherFocus.value);
+        setMode('enrich');
+        teacherFocus.focus();
+        window.showToast('已加入老師批改重點');
+      };
+
+      const bindTransferButtons = () => {
+        document.querySelectorAll('.transfer[data-focus]').forEach((button) => {
+          button.onclick = () => appendTeacherFocus(button.dataset.focus);
+        });
+      };
+
       const updateEssayPreview = () => {
         const content = testContent.value.trim();
         const paragraphs = content.split(/\n\s*\n/).filter(Boolean);
@@ -646,6 +739,9 @@
         ESSAY.goal = testGoal.value.trim();
         ESSAY.content = content;
         document.getElementById('articleTitle').textContent = ESSAY.title || '未命名作文';
+        document.getElementById('metaGrade').textContent = ESSAY.grade || '未提供';
+        document.getElementById('metaTitle').textContent = ESSAY.title || '未命名作文';
+        document.getElementById('metaGoal').textContent = ESSAY.goal || '未提供';
         document.getElementById('wordCount').textContent = `${content.replace(/\s/g, '').length} 字`;
         document.getElementById('essayText').innerHTML = paragraphs
           .map((paragraph, index) => `<p id="paragraph-${index}">${escapeHtml(paragraph)}</p>`).join('');
@@ -656,6 +752,7 @@
 
       const renderAnalysis = (analysis) => {
         genreLabel.textContent = analysis.genre || '作文';
+        lastDiscoveryGenre = analysis.genre || '';
         const highlights = Array.isArray(analysis.highlights) ? analysis.highlights : [];
         document.querySelector('#highlightsSection .count').textContent = highlights.length;
         document.getElementById('highlightsList').innerHTML = highlights.map((item) => `
@@ -663,6 +760,7 @@
             <span class="quote">「${escapeHtml(item.quote)}」</span>
             <p>${escapeHtml(item.analysis)}</p>
             <button class="adopt" type="button" data-quote="${escapeHtml(item.quote)}">採用原文</button>
+            <button class="transfer" type="button" data-focus="我想肯定「${escapeHtml(item.quote)}」這個亮點：${escapeHtml(item.analysis)}">加入重點</button>
           </article>`).join('') || '<p class="connection-help">這次沒有找到適合摘錄的亮點。</p>';
 
         const life = analysis.life_experience || {};
@@ -691,6 +789,7 @@
           </button></li>`).join('');
         bindJumpButtons();
         bindAdoptButtons();
+        bindTransferButtons();
       };
 
       const analyzeEssay = async () => {
@@ -727,6 +826,56 @@
           analyzeButton.disabled = false;
           analyzeButton.textContent = '用 Codex 分析這篇作文';
           aiCard.classList.remove('ai-loading');
+        }
+      };
+
+      const enrichComment = async () => {
+        updateEssayPreview();
+        if (!ESSAY.title || !ESSAY.content) {
+          window.showToast('請先填寫作文題目與內容');
+          return;
+        }
+        if (!teacherFocus.value.trim()) {
+          teacherFocus.focus();
+          window.showToast('請先輸入想對學生說的重點');
+          return;
+        }
+        enrichButton.disabled = true;
+        enrichButton.textContent = '正在豐富評語…';
+        enrichModePanel.classList.add('ai-loading');
+        enrichStatus.textContent = 'AI 正忠實整理你的批改方向，通常需要 30～90 秒';
+        effectiveGenre.textContent = '生成中';
+        try {
+          const response = await fetch('/api/enrich', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              ...ESSAY,
+              genre: genreSelect.value,
+              discoveryGenre: lastDiscoveryGenre,
+              teacherFocus: teacherFocus.value.trim()
+            })
+          });
+          const result = await response.json();
+          if (!response.ok || !result.ok) throw new Error(result.error || '評語生成失敗');
+          const enrichment = result.enrichment;
+          enrichedComment.value = enrichment.final_comment || '';
+          effectiveGenre.textContent = enrichment.effective_genre || enrichment.detected_genre || '作文';
+          intentNote.textContent = `AI 理解的老師意圖：${enrichment.intent_summary || '依照輸入重點整理評語'}`;
+          intentNote.classList.remove('hidden');
+          enrichStatus.textContent = '已完成；請確認並修改後再套用為最終評語';
+          localStorage.setItem('cl3-teacher-focus', teacherFocus.value);
+          localStorage.setItem('cl3-enrich-genre', genreSelect.value);
+          localStorage.setItem('cl3-enriched-comment', enrichedComment.value);
+          window.showToast('評語已豐富完成');
+        } catch (error) {
+          effectiveGenre.textContent = '生成失敗';
+          enrichStatus.textContent = error.message || '請確認本機伺服器與 Codex 登入狀態';
+          window.showToast('評語生成失敗');
+        } finally {
+          enrichButton.disabled = false;
+          enrichButton.textContent = '豐富評語';
+          enrichModePanel.classList.remove('ai-loading');
         }
       };
 
@@ -934,6 +1083,32 @@
       outlineTab.addEventListener('click', showOutline);
       bindJumpButtons();
       bindAdoptButtons();
+      bindTransferButtons();
+      findModeButton.addEventListener('click', () => setMode('find'));
+      enrichModeButton.addEventListener('click', () => setMode('enrich'));
+      enrichButton.addEventListener('click', enrichComment);
+      teacherFocus.addEventListener('input', () => localStorage.setItem('cl3-teacher-focus', teacherFocus.value));
+      genreSelect.addEventListener('change', () => localStorage.setItem('cl3-enrich-genre', genreSelect.value));
+      enrichedComment.addEventListener('input', () => localStorage.setItem('cl3-enriched-comment', enrichedComment.value));
+      document.getElementById('transferSuggestion').addEventListener('click', () => appendTeacherFocus(document.getElementById('suggestionText').textContent));
+      document.getElementById('applyEnrichedButton').addEventListener('click', () => {
+        if (!enrichedComment.value.trim()) return window.showToast('請先生成或輸入評語');
+        comment.value = enrichedComment.value.trim().slice(0, 1500);
+        updateCount();
+        persistDraft();
+        window.showToast('已套用到「我的評語」');
+      });
+      document.getElementById('copyEnrichedButton').addEventListener('click', async () => {
+        if (!enrichedComment.value.trim()) return window.showToast('目前沒有可複製的評語');
+        try {
+          await navigator.clipboard.writeText(enrichedComment.value);
+          window.showToast('已複製評語');
+        } catch (_) {
+          enrichedComment.focus();
+          enrichedComment.select();
+          window.showToast('已選取評語，請按 Ctrl+C 複製');
+        }
+      });
 
       comment.addEventListener('input', () => {
         updateCount();
@@ -988,6 +1163,10 @@
         testTitle.value = localStorage.getItem('cl3-test-title') || testTitle.value;
         testGoal.value = localStorage.getItem('cl3-test-goal') || testGoal.value;
         testContent.value = localStorage.getItem('cl3-test-content') || testContent.value;
+        teacherFocus.value = localStorage.getItem('cl3-teacher-focus') || '';
+        genreSelect.value = localStorage.getItem('cl3-enrich-genre') || '自動判斷';
+        enrichedComment.value = localStorage.getItem('cl3-enriched-comment') || '';
+        setMode(localStorage.getItem('cl3-ai-mode') === 'enrich' ? 'enrich' : 'find');
         updateEssayPreview();
         if (webAppUrl.value && accessKey.value) window.setTimeout(() => connectToSheet(true), 0);
         else setConnectionState('請輸入後台網址與連線密碼。');

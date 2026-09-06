@@ -16,9 +16,12 @@ from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from prompts import build_discovery_prompt, build_enrichment_prompt
+
 
 ROOT = Path(__file__).resolve().parent
-SCHEMA = ROOT / "ai_schema.json"
+DISCOVERY_SCHEMA = ROOT / "ai_schema.json"
+ENRICHMENT_SCHEMA = ROOT / "comment_schema.json"
 HOST = "127.0.0.1"
 PORT = 8765
 MAX_BODY_BYTES = 100_000
@@ -26,45 +29,12 @@ CODEX_TIMEOUT_SECONDS = 240
 CODEX_LOCK = threading.Lock()
 
 
-def build_prompt(data: dict) -> str:
-    title = str(data.get("title", "")).strip()
-    grade = str(data.get("grade", "")).strip()
-    goal = str(data.get("goal", "")).strip()
-    content = str(data.get("content", "")).strip()
-    if not title or not content:
-        raise ValueError("請填寫作文題目與內容")
-    if len(content) > 20_000:
-        raise ValueError("作文內容過長，最多 20,000 字")
-
-    return f"""你是台灣繁體中文的兒童作文批改教練。請分析下方作文，並嚴格依指定 JSON Schema 輸出。
-
-原則：
-- 使用台灣繁體中文與學生能理解的生活白話。
-- 先理解作者真正寫出的經驗，不腦補背景、不做人格或心理診斷。
-- highlights 選 1 到 3 個確實出現在原文的短引句，指出具體寫作效果。
-- life_experience 聚焦一個具體生活細節；coach_response 是老師可以參考的溫暖回應，但不可替作者加大道理。
-- suggestions 給 3 個小而可執行、彼此不同的下一步，每項一到兩句。
-- typos 只列高度確定的錯別字或標點問題；沒有就回傳空陣列。
-- outline 依實際段落整理；每段一項，heading 簡短，summary 說明該段作用。
-- boundary_reminder 提醒教練回應時不要過度詮釋之處。
-- 不要呼叫工具、不要讀取檔案、不要修改任何內容，只完成文字分析。
-
-年級：{grade or '未提供'}
-題目：{title}
-教學目標：{goal or '未提供'}
-作文原文：
----
-{content}
----
-"""
-
-
-def run_codex(data: dict) -> dict:
+def run_codex(data: dict, prompt_builder, schema: Path) -> dict:
     codex = shutil.which("codex")
     if not codex:
         raise RuntimeError("找不到 Codex CLI，請先安裝或從 Codex App 啟動")
 
-    prompt = build_prompt(data)
+    prompt = prompt_builder(data)
     with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as output_file:
         output_path = Path(output_file.name)
 
@@ -77,7 +47,7 @@ def run_codex(data: dict) -> dict:
         "--sandbox",
         "read-only",
         "--output-schema",
-        str(SCHEMA),
+        str(schema),
         "--output-last-message",
         str(output_path),
         "-",
@@ -133,7 +103,11 @@ class Handler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self) -> None:
-        if self.path != "/api/analyze":
+        routes = {
+            "/api/analyze": (build_discovery_prompt, DISCOVERY_SCHEMA, "analysis"),
+            "/api/enrich": (build_enrichment_prompt, ENRICHMENT_SCHEMA, "enrichment"),
+        }
+        if self.path not in routes:
             self.send_error(HTTPStatus.NOT_FOUND)
             return
         try:
@@ -141,8 +115,9 @@ class Handler(SimpleHTTPRequestHandler):
             if length <= 0 or length > MAX_BODY_BYTES:
                 raise ValueError("請求內容大小不正確")
             data = json.loads(self.rfile.read(length).decode("utf-8"))
-            result = run_codex(data)
-            self.send_json({"ok": True, "analysis": result})
+            prompt_builder, schema, response_key = routes[self.path]
+            result = run_codex(data, prompt_builder, schema)
+            self.send_json({"ok": True, response_key: result})
         except (ValueError, json.JSONDecodeError) as error:
             self.send_json({"ok": False, "error": str(error)}, HTTPStatus.BAD_REQUEST)
         except Exception as error:
