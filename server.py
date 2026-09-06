@@ -12,9 +12,13 @@ import shutil
 import subprocess
 import tempfile
 import threading
+import urllib.parse
+import zipfile
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from io import BytesIO
 from pathlib import Path
+from xml.etree import ElementTree
 
 from prompts import build_discovery_prompt, build_enrichment_prompt
 
@@ -25,8 +29,46 @@ ENRICHMENT_SCHEMA = ROOT / "comment_schema.json"
 HOST = "127.0.0.1"
 PORT = 8765
 MAX_BODY_BYTES = 100_000
+MAX_IMPORT_BYTES = 5_000_000
 CODEX_TIMEOUT_SECONDS = 240
 CODEX_LOCK = threading.Lock()
+
+
+def extract_imported_article(filename: str, raw: bytes) -> dict:
+    safe_name = Path(urllib.parse.unquote(filename)).name
+    suffix = Path(safe_name).suffix.lower()
+    if suffix in {".txt", ".md"}:
+        for encoding in ("utf-8-sig", "cp950", "big5"):
+            try:
+                content = raw.decode(encoding)
+                break
+            except UnicodeDecodeError:
+                continue
+        else:
+            raise ValueError("無法辨識文字檔編碼，請另存為 UTF-8 後再試")
+    elif suffix == ".docx":
+        try:
+            with zipfile.ZipFile(BytesIO(raw)) as archive:
+                document_xml = archive.read("word/document.xml")
+            root = ElementTree.fromstring(document_xml)
+            namespace = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+            paragraphs = []
+            for paragraph in root.iter(namespace + "p"):
+                text = "".join(node.text or "" for node in paragraph.iter(namespace + "t"))
+                if text.strip():
+                    paragraphs.append(text.strip())
+            content = "\n\n".join(paragraphs)
+        except (KeyError, zipfile.BadZipFile, ElementTree.ParseError) as exc:
+            raise ValueError("這個 DOCX 檔案無法讀取，請確認檔案未損壞") from exc
+    else:
+        raise ValueError("目前只支援 TXT、MD 與 DOCX 檔案")
+
+    content = content.strip()
+    if not content:
+        raise ValueError("匯入的檔案沒有可讀取的文章內容")
+    if len(content) > 20_000:
+        raise ValueError("文章內容過長，最多 20,000 字")
+    return {"title": Path(safe_name).stem, "content": content}
 
 
 def run_codex(data: dict, prompt_builder, schema: Path) -> dict:
@@ -103,6 +145,20 @@ class Handler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self) -> None:
+        if self.path == "/api/import":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if length <= 0 or length > MAX_IMPORT_BYTES:
+                    raise ValueError("檔案大小不正確，最大 5 MB")
+                filename = self.headers.get("X-Filename", "")
+                if not filename:
+                    raise ValueError("找不到檔案名稱")
+                article = extract_imported_article(filename, self.rfile.read(length))
+                self.send_json({"ok": True, "article": article})
+            except ValueError as error:
+                self.send_json({"ok": False, "error": str(error)}, HTTPStatus.BAD_REQUEST)
+            return
+
         routes = {
             "/api/analyze": (build_discovery_prompt, DISCOVERY_SCHEMA, "analysis"),
             "/api/enrich": (build_enrichment_prompt, ENRICHMENT_SCHEMA, "enrichment"),

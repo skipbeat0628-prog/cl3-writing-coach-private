@@ -113,7 +113,10 @@
     .test-grid label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; font-weight: 700; }
     .test-grid input, .test-grid textarea { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; color: var(--ink); background: #fff; }
     .test-grid .wide { grid-column: 1 / -1; }
-    .test-grid textarea { min-height: 180px; resize: vertical; line-height: 1.8; }
+    .test-grid textarea { min-height: 180px; resize: vertical; overflow-y: hidden; line-height: 1.8; }
+    .import-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; grid-column: 1 / -1; padding: 11px 12px; border: 1px dashed #a9bdb2; border-radius: 10px; background: #f8fbf9; }
+    .import-row.dragging { border-color: var(--green); background: var(--green-soft); }
+    .import-row small { color: var(--muted); }
     .ai-head-actions { display: flex; align-items: center; gap: 10px; }
     .ai-loading { opacity: .7; pointer-events: none; }
     .typo-item { margin: 7px 0; color: #7b3f25; }
@@ -124,7 +127,7 @@
     .focus-field { display: grid; gap: 7px; margin: 14px 0; }
     .focus-field label { color: var(--ink); font-size: 13px; font-weight: 800; }
     .focus-field textarea, .focus-field select { width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: 10px 11px; color: var(--ink); background: #fff; }
-    .focus-field textarea { min-height: 150px; resize: vertical; line-height: 1.7; }
+    .focus-field textarea { min-height: 150px; resize: vertical; overflow-y: hidden; line-height: 1.7; }
     .enrich-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .enriched-result { min-height: 260px !important; }
     .intent-note { margin: 10px 0; padding: 10px 12px; border-left: 3px solid var(--gold); background: #fffaf0; color: var(--muted); font-size: 13px; line-height: 1.6; }
@@ -152,9 +155,9 @@
       padding: 24px clamp(16px, 3vw, 40px) 70px;
     }
 
-    .left-column, .right-column { min-width: 0; }
+    .left-column, .right-column { min-width: 0; overflow-wrap: anywhere; }
     .left-column { display: grid; gap: 18px; }
-    .right-column { align-self: start; position: sticky; top: 92px; }
+    .right-column { align-self: start; position: static; }
 
     .card {
       overflow: hidden;
@@ -314,7 +317,8 @@
 
     .reference-section { padding: 21px 22px; border-bottom: 1px solid var(--line); }
     .reference-section:last-child { border-bottom: 0; }
-    .reference-title { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+    .reference-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+    .hint, .life, .suggestion, .intent-note, .essay-text, .outline-copy { overflow-wrap: anywhere; }
     .reference-title h3 { margin: 0; font-size: 16px; }
     .count { display: grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; color: var(--muted); background: #eef1ef; font-size: 12px; }
     .swap { margin-left: auto; padding: 6px 9px; border-radius: 9px; color: var(--green); background: var(--green-soft); font-size: 12px; font-weight: 800; }
@@ -322,7 +326,7 @@
     .hint { position: relative; padding: 14px 0 16px; border-top: 1px dashed var(--line); }
     .hint:first-of-type { padding-top: 0; border-top: 0; }
     .quote { display: block; margin-bottom: 8px; color: #263c31; font-family: "Noto Serif TC", "PMingLiU", serif; font-weight: 700; }
-    .hint p, .life p, .suggestion p, .reminder li { margin: 0; color: #53625a; font-size: 14px; }
+    .hint p, .life p, .suggestion p, .reminder li { margin: 0; color: #53625a; font-size: 14px; overflow-wrap: anywhere; white-space: normal; }
 
     .adopt {
       margin-top: 12px;
@@ -425,6 +429,11 @@
           <label>年級<input id="testGrade" value="國小五年級"></label>
           <label>作文題目<input id="testTitle" value="我最想留住的一天"></label>
           <label class="wide">教學目標<input id="testGoal" value="用具體事件與感官細節表達感受"></label>
+          <div class="import-row" id="importDropZone">
+            <button class="ghost" type="button" id="importButton">匯入文章檔案</button>
+            <input id="articleFile" type="file" accept=".txt,.md,.docx" hidden>
+            <small id="importStatus">支援 TXT、Markdown、DOCX；也可以把檔案拖到這裡。</small>
+          </div>
           <label class="wide">作文內容<textarea id="testContent">那天早上，阿嬤帶我去市場。市場裡很熱鬧，魚販的冰塊亮晶晶的，賣菜的阿姨一直大聲招呼。阿嬤牽著我的手，手心暖暖的。
 
 我們買了我最喜歡的草莓。回家後，阿嬤教我把草莓切成小小的愛心。雖然有一顆被我切得歪歪的，她還是笑著說：「這顆最可愛。」
@@ -652,6 +661,10 @@
       const effectiveGenre = document.getElementById('effectiveGenre');
       const intentNote = document.getElementById('intentNote');
       const enrichedComment = document.getElementById('enrichedComment');
+      const importButton = document.getElementById('importButton');
+      const articleFile = document.getElementById('articleFile');
+      const importDropZone = document.getElementById('importDropZone');
+      const importStatus = document.getElementById('importStatus');
       let sheetEndpoint = '';
       let lastDiscoveryGenre = '';
       let toastTimer;
@@ -663,6 +676,12 @@
         '第二段已經有阿嬤說的話，也可以補上自己當時做了什麼，讓兩人的互動再完整一點。'
       ];
       let suggestionIndex = 0;
+
+      const autoGrow = (field) => {
+        if (!field) return;
+        field.style.height = 'auto';
+        field.style.height = `${Math.max(field.scrollHeight + 2, 150)}px`;
+      };
 
       const escapeHtml = (value) => String(value ?? '')
         .replaceAll('&', '&amp;')
@@ -689,6 +708,7 @@
         comment.value = `${before}${prefix}${text}${suffix}${after}`;
         const caret = (before + prefix + text).length;
         updateCount();
+        autoGrow(comment);
         persistDraft();
         comment.focus();
         comment.setSelectionRange(caret, caret);
@@ -711,6 +731,9 @@
         findModeButton.setAttribute('aria-pressed', String(isFind));
         enrichModeButton.setAttribute('aria-pressed', String(!isFind));
         localStorage.setItem('cl3-ai-mode', mode);
+        if (!isFind) {
+          window.requestAnimationFrame(() => [teacherFocus, enrichedComment].forEach(autoGrow));
+        }
       };
 
       const appendTeacherFocus = (text) => {
@@ -719,6 +742,7 @@
         const lines = teacherFocus.value.split('\n').map((line) => line.trim()).filter(Boolean);
         if (!lines.includes(clean)) lines.push(clean);
         teacherFocus.value = lines.join('\n');
+        autoGrow(teacherFocus);
         localStorage.setItem('cl3-teacher-focus', teacherFocus.value);
         setMode('enrich');
         teacherFocus.focus();
@@ -748,6 +772,38 @@
         document.getElementById('paragraphNav').innerHTML = '<span>快速跳到</span>' + paragraphs
           .map((_, index) => `<button type="button" data-jump="${index}" aria-label="跳到第 ${index + 1} 段">${index + 1}</button>`).join('');
         bindJumpButtons();
+        autoGrow(testContent);
+      };
+
+      const importArticleFile = async (file) => {
+        if (!file) return;
+        importButton.disabled = true;
+        importStatus.textContent = `正在匯入 ${file.name}…`;
+        try {
+          const response = await fetch('/api/import', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/octet-stream',
+              'X-Filename': encodeURIComponent(file.name)
+            },
+            body: await file.arrayBuffer()
+          });
+          const result = await response.json();
+          if (!response.ok || !result.ok) throw new Error(result.error || '文章匯入失敗');
+          testTitle.value = result.article.title || testTitle.value;
+          testContent.value = result.article.content;
+          updateEssayPreview();
+          localStorage.setItem('cl3-test-title', testTitle.value);
+          localStorage.setItem('cl3-test-content', testContent.value);
+          importStatus.textContent = `已匯入 ${file.name}，共 ${testContent.value.replace(/\s/g, '').length} 字。`;
+          window.showToast('文章匯入完成');
+        } catch (error) {
+          importStatus.textContent = error.message || '文章匯入失敗';
+          window.showToast('文章匯入失敗');
+        } finally {
+          importButton.disabled = false;
+          articleFile.value = '';
+        }
       };
 
       const renderAnalysis = (analysis) => {
@@ -860,6 +916,7 @@
           if (!response.ok || !result.ok) throw new Error(result.error || '評語生成失敗');
           const enrichment = result.enrichment;
           enrichedComment.value = enrichment.final_comment || '';
+          autoGrow(enrichedComment);
           effectiveGenre.textContent = enrichment.effective_genre || enrichment.detected_genre || '作文';
           intentNote.textContent = `AI 理解的老師意圖：${enrichment.intent_summary || '依照輸入重點整理評語'}`;
           intentNote.classList.remove('hidden');
@@ -1087,14 +1144,21 @@
       findModeButton.addEventListener('click', () => setMode('find'));
       enrichModeButton.addEventListener('click', () => setMode('enrich'));
       enrichButton.addEventListener('click', enrichComment);
-      teacherFocus.addEventListener('input', () => localStorage.setItem('cl3-teacher-focus', teacherFocus.value));
+      teacherFocus.addEventListener('input', () => {
+        localStorage.setItem('cl3-teacher-focus', teacherFocus.value);
+        autoGrow(teacherFocus);
+      });
       genreSelect.addEventListener('change', () => localStorage.setItem('cl3-enrich-genre', genreSelect.value));
-      enrichedComment.addEventListener('input', () => localStorage.setItem('cl3-enriched-comment', enrichedComment.value));
+      enrichedComment.addEventListener('input', () => {
+        localStorage.setItem('cl3-enriched-comment', enrichedComment.value);
+        autoGrow(enrichedComment);
+      });
       document.getElementById('transferSuggestion').addEventListener('click', () => appendTeacherFocus(document.getElementById('suggestionText').textContent));
       document.getElementById('applyEnrichedButton').addEventListener('click', () => {
         if (!enrichedComment.value.trim()) return window.showToast('請先生成或輸入評語');
         comment.value = enrichedComment.value.trim().slice(0, 1500);
         updateCount();
+        autoGrow(comment);
         persistDraft();
         window.showToast('已套用到「我的評語」');
       });
@@ -1112,6 +1176,7 @@
 
       comment.addEventListener('input', () => {
         updateCount();
+        autoGrow(comment);
         saveStatus.textContent = '儲存中…';
         window.clearTimeout(saveTimer);
         saveTimer = window.setTimeout(() => persistDraft(), 450);
@@ -1129,6 +1194,17 @@
         window.showToast(`已切換到建議 ${suggestionIndex + 1}`);
       });
       analyzeButton.addEventListener('click', analyzeEssay);
+      importButton.addEventListener('click', () => articleFile.click());
+      articleFile.addEventListener('change', () => importArticleFile(articleFile.files[0]));
+      ['dragenter', 'dragover'].forEach((eventName) => importDropZone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        importDropZone.classList.add('dragging');
+      }));
+      ['dragleave', 'drop'].forEach((eventName) => importDropZone.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        importDropZone.classList.remove('dragging');
+      }));
+      importDropZone.addEventListener('drop', (event) => importArticleFile(event.dataTransfer.files[0]));
 
       connectButton.addEventListener('click', () => connectToSheet());
       webAppUrl.addEventListener('keydown', (event) => {
@@ -1168,6 +1244,7 @@
         enrichedComment.value = localStorage.getItem('cl3-enriched-comment') || '';
         setMode(localStorage.getItem('cl3-ai-mode') === 'enrich' ? 'enrich' : 'find');
         updateEssayPreview();
+        [testContent, teacherFocus, enrichedComment, comment].forEach(autoGrow);
         if (webAppUrl.value && accessKey.value) window.setTimeout(() => connectToSheet(true), 0);
         else setConnectionState('請輸入後台網址與連線密碼。');
       } catch (_) {}
