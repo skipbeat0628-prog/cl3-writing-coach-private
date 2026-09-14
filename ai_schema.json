@@ -2,9 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "additionalProperties": false,
-  "required": ["genre", "outline", "typos", "highlights", "life_experience", "suggestions", "boundary_reminder"],
+  "required": ["genre", "article_summary", "outline", "typos", "highlights", "life_experience", "suggestions", "boundary_reminder"],
   "properties": {
     "genre": { "type": "string" },
+    "article_summary": { "type": "string" },
     "outline": {
       "type": "array",
       "items": {

@@ -2,6 +2,10 @@ $ErrorActionPreference = 'Stop'
 $ProjectDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $VenvPython = Join-Path $ProjectDir '.venv\Scripts\python.exe'
 $BundledPython = 'C:\Users\admin\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
+$CodexHome = Join-Path $env:USERPROFILE '.codex'
+if (-not $env:CODEX_HOME -and (Test-Path -LiteralPath $CodexHome)) {
+    $env:CODEX_HOME = $CodexHome
+}
 
 if (-not (Test-Path -LiteralPath $VenvPython)) {
     $PythonCommand = Get-Command python -ErrorAction SilentlyContinue
@@ -14,5 +18,4 @@ if (-not (Test-Path -LiteralPath $VenvPython)) {
     }
 }
 
-Start-Process 'http://127.0.0.1:8765'
-& $VenvPython (Join-Path $ProjectDir 'server.py')
+& $VenvPython (Join-Path $ProjectDir 'server.py') --open

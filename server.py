@@ -10,9 +10,12 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import urllib.parse
+import urllib.request
+import webbrowser
 import zipfile
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -20,12 +23,13 @@ from io import BytesIO
 from pathlib import Path
 from xml.etree import ElementTree
 
-from prompts import build_discovery_prompt, build_enrichment_prompt
+from prompts import build_discovery_prompt, build_enrichment_prompt, build_cap_prompt
 
 
 ROOT = Path(__file__).resolve().parent
 DISCOVERY_SCHEMA = ROOT / "ai_schema.json"
 ENRICHMENT_SCHEMA = ROOT / "comment_schema.json"
+CAP_SCHEMA = ROOT / "cap_schema.json"
 HOST = "127.0.0.1"
 PORT = 8765
 MAX_BODY_BYTES = 100_000
@@ -96,6 +100,10 @@ def run_codex(data: dict, prompt_builder, schema: Path) -> dict:
     ]
     environment = os.environ.copy()
     environment["NO_COLOR"] = "1"
+    if not environment.get("CODEX_HOME"):
+        user_profile = environment.get("USERPROFILE")
+        if user_profile:
+            environment["CODEX_HOME"] = str(Path(user_profile) / ".codex")
     creation_flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
 
     try:
@@ -162,6 +170,7 @@ class Handler(SimpleHTTPRequestHandler):
         routes = {
             "/api/analyze": (build_discovery_prompt, DISCOVERY_SCHEMA, "analysis"),
             "/api/enrich": (build_enrichment_prompt, ENRICHMENT_SCHEMA, "enrichment"),
+            "/api/cap": (build_cap_prompt, CAP_SCHEMA, "assessment"),
         }
         if self.path not in routes:
             self.send_error(HTTPStatus.NOT_FOUND)
@@ -192,6 +201,23 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    print(f"CL3 作文批改教練：http://{HOST}:{PORT}")
-    print("請保持這個視窗開啟；按 Ctrl+C 停止伺服器。")
-    ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
+    site_url = f"http://{HOST}:{PORT}"
+    try:
+        server = ThreadingHTTPServer((HOST, PORT), Handler)
+    except OSError as error:
+        try:
+            with urllib.request.urlopen(site_url, timeout=2) as response:
+                page = response.read(200_000).decode("utf-8", errors="replace")
+            if response.status == 200 and "作文批改教練" in page:
+                print(f"網站已在執行：{site_url}", flush=True)
+                if "--open" in sys.argv[1:]:
+                    webbrowser.open(site_url)
+                raise SystemExit(0)
+        except (OSError, UnicodeError):
+            pass
+        raise SystemExit(f"網站無法啟動：{error}。請檢查連接埠 {PORT} 是否被其他程式使用。") from error
+    print(f"CL3 作文批改教練：{site_url}", flush=True)
+    print("請保持這個視窗開啟；按 Ctrl+C 停止伺服器。", flush=True)
+    if "--open" in sys.argv[1:]:
+        threading.Timer(0.5, webbrowser.open, args=(site_url,)).start()
+    server.serve_forever()

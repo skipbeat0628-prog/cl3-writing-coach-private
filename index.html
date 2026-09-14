@@ -120,7 +120,7 @@
     .ai-head-actions { display: flex; align-items: center; gap: 10px; }
     .ai-loading { opacity: .7; pointer-events: none; }
     .typo-item { margin: 7px 0; color: #7b3f25; }
-    .mode-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 16px; padding: 4px; border-radius: 11px; background: #edf1ed; }
+    .mode-switch { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; margin-bottom: 16px; padding: 4px; border-radius: 11px; background: #edf1ed; }
     .mode-switch button { border: 0; border-radius: 8px; padding: 9px 10px; color: var(--muted); background: transparent; cursor: pointer; font-weight: 800; }
     .mode-switch button.active { color: var(--green); background: #fff; box-shadow: 0 1px 5px rgba(25, 55, 44, .12); }
     .mode-panel.hidden { display: none; }
@@ -241,6 +241,15 @@
       background: #fff2b9;
       box-shadow: inset 4px 0 0 #d5ad27;
     }
+    .article-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .article-heading h1 { margin: 0 0 18px; }
+    .essay-editor { display: grid; gap: 8px; margin: 4px 0 20px; font-weight: 800; }
+    .essay-editor.hidden, .essay-text.hidden, .paragraph-nav.hidden { display: none; }
+    .essay-editor textarea { width: 100%; min-height: 260px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; resize: vertical; line-height: 2; font-weight: 400; }
+    .article-summary { margin-top: 18px; padding: 16px 18px; border-radius: 12px; background: var(--green-soft); }
+    .article-summary h2 { margin: 0 0 6px; font-size: 16px; }
+    .article-summary p { margin: 0; color: #53625a; }
+    .article-analyze { display: block; width: 100%; margin-top: 20px; }
 
     .outline-panel { display: none; }
     .outline-panel.open { display: block; }
@@ -417,6 +426,10 @@
     </div>
   </header>
 
+  <div id="localFileNotice" role="alert" style="display:none; margin:16px auto; max-width:1100px; padding:14px 18px; border:2px solid #c98443; border-radius:10px; background:#fff5e8; color:#553514; line-height:1.6;">
+    你目前直接開啟了 index.html。AI 批改需要先雙擊同資料夾的「啟動網站.bat」；啟動後請使用 <a href="http://127.0.0.1:8765/">http://127.0.0.1:8765/</a>。
+  </div>
+
   <section class="connection-wrap" aria-label="Google 試算表連線">
     <div class="connection-card" id="connectionCard">
       <span class="connection-label">Google 試算表</span>
@@ -429,8 +442,8 @@
 
   <main class="workspace">
     <div class="left-column">
-      <details class="card test-editor" open>
-        <summary>測試作文輸入</summary>
+      <details class="card test-editor">
+        <summary>作文基本資料與匯入</summary>
         <div class="test-grid">
           <label>年級<input id="testGrade" value="國小五年級"></label>
           <label>作文題目<input id="testTitle" value="我最想留住的一天"></label>
@@ -441,12 +454,6 @@
             <input id="articleFile" type="file" accept=".txt,.md,.docx" hidden>
             <small id="importStatus">支援 TXT、Markdown、DOCX；也可以把檔案拖到這裡。</small>
           </div>
-          <label class="wide">作文內容<textarea id="testContent">那天早上，阿嬤帶我去市場。市場裡很熱鬧，魚販的冰塊亮晶晶的，賣菜的阿姨一直大聲招呼。阿嬤牽著我的手，手心暖暖的。
-
-我們買了我最喜歡的草莓。回家後，阿嬤教我把草莓切成小小的愛心。雖然有一顆被我切得歪歪的，她還是笑著說：「這顆最可愛。」
-
-傍晚我要回家時，阿嬤把剩下的草莓全塞進我的袋子。我希望時間可以停在那一天，因為長大以後，我可能就不能常常牽著阿嬤的手逛市場了。</textarea></label>
-          <button class="primary wide" type="button" id="analyzeButton">用 Codex 分析這篇作文</button>
         </div>
       </details>
       <section class="card meta" aria-label="作文基本資料">
@@ -466,7 +473,12 @@
         </div>
 
         <div class="article-body original-panel" id="originalPanel" role="tabpanel">
-          <h1 id="articleTitle">我最想留住的一天</h1>
+          <div class="article-heading"><h1 id="articleTitle">我最想留住的一天</h1><button class="ghost" type="button" id="editArticleButton">編輯原文</button></div>
+          <label class="essay-editor hidden" id="essayEditor">作文內容<textarea id="testContent">那天早上，阿嬤帶我去市場。市場裡很熱鬧，魚販的冰塊亮晶晶的，賣菜的阿姨一直大聲招呼。阿嬤牽著我的手，手心暖暖的。
+
+我們買了我最喜歡的草莓。回家後，阿嬤教我把草莓切成小小的愛心。雖然有一顆被我切得歪歪的，她還是笑著說：「這顆最可愛。」
+
+傍晚我要回家時，阿嬤把剩下的草莓全塞進我的袋子。我希望時間可以停在那一天，因為長大以後，我可能就不能常常牽著阿嬤的手逛市場了。</textarea></label>
           <nav class="paragraph-nav" aria-label="段落快速跳轉" id="paragraphNav">
             <span>快速跳到</span>
             <button type="button" data-jump="0" aria-label="跳到第 1 段">1</button>
@@ -478,10 +490,12 @@
             <p id="paragraph-1">我們買了我最喜歡的草莓。回家後，阿嬤教我把草莓切成小小的愛心。雖然有一顆被我切得歪歪的，她還是笑著說：「這顆最可愛。」</p>
             <p id="paragraph-2">傍晚我要回家時，阿嬤把剩下的草莓全塞進我的袋子。我希望時間可以停在那一天，因為長大以後，我可能就不能常常牽著阿嬤的手逛市場了。</p>
           </div>
+          <section class="article-summary" aria-label="文章大意"><h2>文章大意</h2><p id="articleSummary">按「用 Codex 分析這篇作文」後，這裡會顯示文章大意。</p></section>
           <section class="typo-check" aria-label="錯字檢查" id="typoCheck">
             <div class="typo-title"><span>✎ 錯字檢查</span></div>
             <p class="no-typo">✓ 未發現明顯錯字</p>
           </section>
+          <button class="primary article-analyze" type="button" id="analyzeButton">用 Codex 分析這篇作文</button>
         </div>
 
         <div class="article-body outline-panel" id="outlinePanel" role="tabpanel">
@@ -521,7 +535,7 @@
           <textarea id="comment" maxlength="1500" placeholder="在這裡寫下你想給作者的回應……"></textarea>
           <div class="comment-footer">
             <span id="commentCount">0/1500</span>
-            <label class="score"><b>學生分數</b><input id="score" type="number" min="0" max="10" inputmode="decimal"> / 10</label>
+            <label class="score"><b>老師評分</b><input id="score" type="number" min="0" max="10" inputmode="decimal"> / 10</label>
           </div>
         </div>
       </section>
@@ -532,6 +546,7 @@
         <nav class="mode-switch" aria-label="AI 批改模式">
           <button class="active" type="button" id="findModeButton" aria-pressed="true">找點模式</button>
           <button type="button" id="enrichModeButton" aria-pressed="false">評語豐富模式</button>
+          <button type="button" id="capModeButton" aria-pressed="false">會考寫作評估</button>
         </nav>
         <div class="mode-panel" id="findModePanel">
         <div class="ai-head">
@@ -619,6 +634,13 @@
             <button class="ghost" type="button" id="copyEnrichedButton">複製評語</button>
           </div>
         </div>
+        <div class="mode-panel hidden" id="capModePanel">
+          <div class="ai-head"><div><strong>AI 會考寫作參考評估</strong><small id="capStatus">依官方規準提供教練複核用的參考級分</small></div></div>
+          <p class="connection-help">此結果為 AI 依會考寫作評分規準提供的參考評估，最終判斷仍由教練決定。</p>
+          <div class="focus-field"><button class="primary" type="button" id="capButton">評估這篇作文</button></div>
+          <div id="capResult" aria-live="polite"><p class="connection-help">請先填寫國中年級、題目及作文，再開始評估。</p></div>
+          <small class="connection-help">四面向是診斷依據；整體 0–6 級分不由分項平均。純文字無法檢查手寫卷面。AI 結果須由老師核對。</small>
+        </div>
       </section>
     </aside>
   </main>
@@ -637,6 +659,7 @@
 
   <script>
     (() => {
+      if (location.protocol === 'file:') document.getElementById('localFileNotice').style.display = 'block';
       const ESSAY = {
         id: 'CL3-DEMO-001',
         student: '林語晴',
@@ -667,10 +690,19 @@
       const testTitle = document.getElementById('testTitle');
       const testGoal = document.getElementById('testGoal');
       const testContent = document.getElementById('testContent');
+      const essayEditor = document.getElementById('essayEditor');
+      const editArticleButton = document.getElementById('editArticleButton');
+      const essayText = document.getElementById('essayText');
+      const paragraphNav = document.getElementById('paragraphNav');
       const findModeButton = document.getElementById('findModeButton');
       const enrichModeButton = document.getElementById('enrichModeButton');
+      const capModeButton = document.getElementById('capModeButton');
       const findModePanel = document.getElementById('findModePanel');
       const enrichModePanel = document.getElementById('enrichModePanel');
+      const capModePanel = document.getElementById('capModePanel');
+      const capButton = document.getElementById('capButton');
+      const capStatus = document.getElementById('capStatus');
+      const capResult = document.getElementById('capResult');
       const genreSelect = document.getElementById('genreSelect');
       const teacherFocus = document.getElementById('teacherFocus');
       const enrichButton = document.getElementById('enrichButton');
@@ -746,14 +778,19 @@
 
       const setMode = (mode) => {
         const isFind = mode === 'find';
+        const isEnrich = mode === 'enrich';
+        const isCap = mode === 'cap';
         findModePanel.classList.toggle('hidden', !isFind);
-        enrichModePanel.classList.toggle('hidden', isFind);
+        enrichModePanel.classList.toggle('hidden', !isEnrich);
+        capModePanel.classList.toggle('hidden', !isCap);
         findModeButton.classList.toggle('active', isFind);
-        enrichModeButton.classList.toggle('active', !isFind);
+        enrichModeButton.classList.toggle('active', isEnrich);
+        capModeButton.classList.toggle('active', isCap);
         findModeButton.setAttribute('aria-pressed', String(isFind));
-        enrichModeButton.setAttribute('aria-pressed', String(!isFind));
+        enrichModeButton.setAttribute('aria-pressed', String(isEnrich));
+        capModeButton.setAttribute('aria-pressed', String(isCap));
         localStorage.setItem('cl3-ai-mode', mode);
-        if (!isFind) {
+        if (isEnrich) {
           window.requestAnimationFrame(() => [teacherFocus, enrichedComment].forEach(autoGrow));
         }
       };
@@ -790,6 +827,12 @@
         document.getElementById('boundaryList').innerHTML = '<li>完成找點分析後，這裡會顯示回應提醒。</li>';
         document.getElementById('typoCheck').innerHTML = '<div class="typo-title"><span>✎ 錯字檢查</span></div><p class="connection-help">尚未分析。</p>';
         document.getElementById('outlineList').innerHTML = '<li class="connection-help">完成找點分析後，這裡會顯示文章大綱。</li>';
+        document.getElementById('articleSummary').textContent = '按「用 Codex 分析這篇作文」後，這裡會顯示文章大意。';
+      };
+
+      const resetCapResults = () => {
+        capStatus.textContent = '依官方規準提供教練複核用的參考級分';
+        capResult.innerHTML = '<p class="connection-help">請先填寫國中年級、題目及作文，再開始評估。</p>';
       };
 
       const hasCurrentReviewWork = () => Boolean(
@@ -826,6 +869,7 @@
         intentNote.textContent = '';
         intentNote.classList.add('hidden');
         resetFindResults();
+        resetCapResults();
         updateCount();
         [comment, teacherFocus, enrichedComment].forEach(autoGrow);
         setMode('find');
@@ -858,6 +902,21 @@
         autoGrow(testContent);
       };
 
+      const setEditingArticle = (editing) => {
+        essayEditor.classList.toggle('hidden', !editing);
+        essayText.classList.toggle('hidden', editing);
+        paragraphNav.classList.toggle('hidden', editing);
+        editArticleButton.textContent = editing ? '完成編輯' : '編輯原文';
+        if (editing) {
+          showOriginal();
+          autoGrow(testContent);
+          testContent.focus();
+        } else {
+          updateEssayPreview();
+          saveCurrentArticle();
+        }
+      };
+
       const importArticleFile = async (file) => {
         if (!file) return;
         if (!(await confirmReplaceArticle())) {
@@ -882,6 +941,9 @@
           testTitle.value = result.article.title || testTitle.value;
           testContent.value = result.article.content;
           updateEssayPreview();
+          setEditingArticle(false);
+          resetFindResults();
+          resetCapResults();
           saveCurrentArticle();
           importStatus.textContent = `已匯入 ${file.name}，共 ${testContent.value.replace(/\s/g, '').length} 字。`;
           window.showToast('文章匯入完成');
@@ -897,6 +959,7 @@
       const renderAnalysis = (analysis) => {
         genreLabel.textContent = analysis.genre || '作文';
         lastDiscoveryGenre = analysis.genre || '';
+        document.getElementById('articleSummary').textContent = analysis.article_summary || '這次沒有取得文章大意。';
         const highlights = Array.isArray(analysis.highlights) ? analysis.highlights : [];
         document.querySelector('#highlightsSection .count').textContent = highlights.length;
         document.getElementById('highlightsList').innerHTML = highlights.map((item) => `
@@ -938,6 +1001,7 @@
 
       const analyzeEssay = async () => {
         updateEssayPreview();
+        setEditingArticle(false);
         if (!ESSAY.title || !ESSAY.content) {
           window.showToast('請先填寫作文題目與內容');
           return;
@@ -970,6 +1034,44 @@
           analyzeButton.disabled = false;
           analyzeButton.textContent = '用 Codex 分析這篇作文';
           aiCard.classList.remove('ai-loading');
+        }
+      };
+
+      const assessCap = async () => {
+        updateEssayPreview();
+        if (!ESSAY.title || !ESSAY.content) return window.showToast('請先填寫作文題目與內容');
+        if (!/(國中|七年級|八年級|九年級|國一|國二|國三)/.test(ESSAY.grade)) return window.showToast('請先將年級改為國中');
+        capButton.disabled = true;
+        capStatus.textContent = '正在依四面向檢視原文，通常需要 30～90 秒';
+        capResult.innerHTML = '<p class="connection-help">評估中，請稍等…</p>';
+        try {
+          const response = await fetch('/api/cap', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(ESSAY)
+          });
+          const result = await response.json();
+          if (!response.ok || !result.ok) throw new Error(result.error || '會考評估失敗');
+          const assessment = result.assessment;
+          const names = ['立意取材', '結構組織', '遣詞造句', '錯別字、格式與標點符號'];
+          if (!Array.isArray(assessment.dimensions) || assessment.dimensions.length !== 4 ||
+              assessment.dimensions.some((item, index) => item.name !== names[index] || !Number.isInteger(item.level) || item.level < 1 || item.level > 6 || (item.quote && !ESSAY.content.includes(item.quote))) ||
+              !Number.isInteger(assessment.overall_level) || assessment.overall_level < 0 || assessment.overall_level > 6) {
+            throw new Error('AI 回傳的評估依據不完整，請重新評估');
+          }
+          capResult.innerHTML = `
+            <section class="reference-section"><h3>預估級分｜${assessment.overall_level} 級分</h3></section>
+            <section class="reference-section"><h3>四大面向</h3></section>
+            ${assessment.dimensions.map((item) => `<section class="reference-section"><h3>${escapeHtml(item.name)}｜${item.level}</h3><p><b>結論：</b>${escapeHtml(item.conclusion)}</p><p><b>文章證據：</b>${item.quote ? `「${escapeHtml(item.quote)}」` : '原文中沒有可引用的內容'}</p><p><b>判斷：</b>${escapeHtml(item.reason)}</p></section>`).join('')}
+            <section class="reference-section"><h3>為什麼是這個級分？</h3><p>${escapeHtml(assessment.overall_reason)}</p></section>
+            <section class="reference-section"><h3>如果只改一件事</h3><p><b>優先改善：${escapeHtml(assessment.priority_title)}</b></p><p>${escapeHtml(assessment.priority_detail)}</p></section>
+            <section class="reference-section"><h3>評估限制</h3><p>${escapeHtml(assessment.limitations)}</p></section>`;
+          capStatus.textContent = '評估完成；請由教練核對級分與原文證據';
+        } catch (error) {
+          capStatus.textContent = error.message || '請確認本機伺服器與 Codex 登入狀態';
+          capResult.innerHTML = '<p class="connection-help">這次沒有取得可信的評估結果。</p>';
+        } finally {
+          capButton.disabled = false;
         }
       };
 
@@ -1188,6 +1290,7 @@
       };
 
       const jumpToParagraph = (index) => {
+        setEditingArticle(false);
         showOriginal();
         window.requestAnimationFrame(() => {
           const paragraph = document.getElementById(`paragraph-${index}`);
@@ -1225,12 +1328,16 @@
       };
 
       originalTab.addEventListener('click', showOriginal);
-      outlineTab.addEventListener('click', showOutline);
+      outlineTab.addEventListener('click', () => { setEditingArticle(false); showOutline(); });
+      editArticleButton.addEventListener('click', () => setEditingArticle(essayEditor.classList.contains('hidden')));
       bindJumpButtons();
       bindAdoptButtons();
       bindTransferButtons();
       findModeButton.addEventListener('click', () => setMode('find'));
       enrichModeButton.addEventListener('click', () => setMode('enrich'));
+      capModeButton.addEventListener('click', () => setMode('cap'));
+      capButton.addEventListener('click', assessCap);
+      [testGrade, testTitle, testGoal, testContent].forEach((field) => field.addEventListener('input', resetCapResults));
       enrichButton.addEventListener('click', enrichComment);
       teacherFocus.addEventListener('input', () => {
         localStorage.setItem(draftKey('teacher-focus'), teacherFocus.value);
@@ -1289,9 +1396,10 @@
         testTitle.value = '';
         testContent.value = '';
         updateEssayPreview();
+        setEditingArticle(true);
         saveCurrentArticle();
         importStatus.textContent = '已建立新的空白作文，可直接輸入或匯入檔案。';
-        testTitle.focus();
+        testContent.focus();
         window.showToast('已建立新文章');
       });
       articleFile.addEventListener('change', () => importArticleFile(articleFile.files[0]));
@@ -1307,6 +1415,7 @@
       [testGrade, testTitle, testGoal, testContent].forEach((field) => field.addEventListener('input', () => {
         updateEssayPreview();
         saveCurrentArticle();
+        resetFindResults();
       }));
 
       connectButton.addEventListener('click', () => connectToSheet());
@@ -1353,7 +1462,7 @@
         localStorage.setItem(draftKey('teacher-focus'), teacherFocus.value);
         localStorage.setItem(draftKey('enriched-comment'), enrichedComment.value);
         ['cl3-demo-comment', 'cl3-demo-score', 'cl3-teacher-focus', 'cl3-enriched-comment'].forEach((key) => localStorage.removeItem(key));
-        setMode(localStorage.getItem('cl3-ai-mode') === 'enrich' ? 'enrich' : 'find');
+        setMode(['find', 'enrich', 'cap'].includes(localStorage.getItem('cl3-ai-mode')) ? localStorage.getItem('cl3-ai-mode') : 'find');
         updateEssayPreview();
         [testContent, teacherFocus, enrichedComment, comment].forEach(autoGrow);
         if (webAppUrl.value && accessKey.value) window.setTimeout(() => connectToSheet(true), 0);

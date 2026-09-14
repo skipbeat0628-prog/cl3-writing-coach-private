@@ -1,11 +1,12 @@
 import sys
+import json
 import unittest
 from pathlib import Path
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from prompts import build_discovery_prompt, build_enrichment_prompt
+from prompts import build_discovery_prompt, build_enrichment_prompt, build_cap_prompt
 
 
 BASE = {
@@ -21,6 +22,7 @@ class PromptContractTests(unittest.TestCase):
         discovery = build_discovery_prompt(BASE)
         enrichment = build_enrichment_prompt({**BASE, "teacherFocus": "喜歡開頭；爸爸可以多寫"})
         self.assertIn("發散", discovery)
+        self.assertIn("article_summary", discovery)
         self.assertIn("只能收斂", enrichment)
         self.assertNotEqual(discovery, enrichment)
 
@@ -54,6 +56,22 @@ class PromptContractTests(unittest.TestCase):
         self.assertIn("只帶學生走前方一兩步", prompt)
         self.assertIn("不因不符合現實而否定創意", prompt)
         self.assertIn("簡單但不幼稚", prompt)
+
+    def test_cap_prompt_uses_official_holistic_rubric(self):
+        prompt = build_cap_prompt({**BASE, "grade": "國中二年級"})
+        self.assertIn("寫作測驗評分規準", prompt)
+        self.assertIn("不要以四面向分數平均", prompt)
+        self.assertIn("原文短引句", prompt)
+        self.assertIn("手寫格式", prompt)
+        self.assertIn("只提出一個優先改善方向", prompt)
+        schema = json.loads((Path(__file__).resolve().parents[1] / "cap_schema.json").read_text(encoding="utf-8"))
+        self.assertEqual(schema["properties"]["dimensions"]["items"]["required"], ["name", "level", "conclusion", "quote", "reason"])
+        self.assertIn("priority_title", schema["required"])
+        self.assertNotIn("rewritten_example", schema["required"])
+
+    def test_cap_prompt_rejects_primary_grade(self):
+        with self.assertRaisesRegex(ValueError, "適用國中作文"):
+            build_cap_prompt(BASE)
 
 
 if __name__ == "__main__":
