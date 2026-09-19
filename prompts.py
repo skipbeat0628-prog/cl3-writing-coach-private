@@ -8,11 +8,11 @@ def _essay_context(data: dict) -> tuple[str, str, str, str]:
     grade = str(data.get("grade", "")).strip()
     goal = str(data.get("goal", "")).strip()
     content = str(data.get("content", "")).strip()
-    if not title or not content:
-        raise ValueError("請填寫作文題目與內容")
+    if not content:
+        raise ValueError("請填寫作文內容")
     if len(content) > 20_000:
         raise ValueError("作文內容過長，最多 20,000 字")
-    return title, grade, goal, content
+    return title or "未命名作文", grade, goal, content
 
 
 def build_discovery_prompt(data: dict) -> str:
@@ -29,7 +29,7 @@ def build_discovery_prompt(data: dict) -> str:
 - life_experience 聚焦一個具體生活細節；coach_response 是老師可以參考的溫暖回應，但不可替作者加大道理。
 - suggestions 給 3 個小而可執行、彼此不同的下一步，每項一到兩句。
 - typos 只列高度確定的錯別字或標點問題；沒有就回傳空陣列。
-- article_summary 用 1～2 句概述這篇文章實際寫了什麼，不加入原文沒有的情節或評價。
+- article_summary 用 100 字以內概述這篇文章實際寫了什麼，不加入原文沒有的情節或評價。
 - outline 依實際段落整理；每段一項，heading 簡短，summary 說明該段作用。
 - boundary_reminder 提醒教練回應時不要過度詮釋之處。
 - 不要呼叫工具、不要讀取檔案、不要修改任何內容，只完成文字分析。

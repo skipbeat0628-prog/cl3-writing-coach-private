@@ -30,6 +30,10 @@ class PromptContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "想對學生說的重點"):
             build_enrichment_prompt(BASE)
 
+    def test_title_is_optional_when_content_exists(self):
+        prompt = build_discovery_prompt({**BASE, "title": ""})
+        self.assertIn("題目：未命名作文", prompt)
+
     def test_teacher_direction_is_highest_priority(self):
         prompt = build_enrichment_prompt({**BASE, "teacherFocus": "只鼓勵結尾"})
         self.assertIn("唯一可發展", prompt)
