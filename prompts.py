@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 
 def _essay_context(data: dict) -> tuple[str, str, str, str]:
     title = str(data.get("title", "")).strip()
@@ -50,6 +52,12 @@ def build_enrichment_prompt(data: dict) -> str:
     teacher_focus = str(data.get("teacherFocus", "")).strip()
     requested_genre = str(data.get("genre", "自動判斷")).strip() or "自動判斷"
     discovery_genre = str(data.get("discoveryGenre", "")).strip()
+    discovery_analysis = data.get("discoveryAnalysis")
+    discovery_context = (
+        json.dumps(discovery_analysis, ensure_ascii=False, separators=(",", ":"))
+        if isinstance(discovery_analysis, dict)
+        else "未提供"
+    )
     if not teacher_focus:
         raise ValueError("請先輸入想對學生說的重點")
     if len(teacher_focus) > 5_000:
@@ -66,6 +74,7 @@ def build_enrichment_prompt(data: dict) -> str:
 4. 尊重孩子的聲音、幽默、奇特想法與創作世界；不把文章改造成成人的標準作文，不做人格或心理診斷。
 5. 只帶學生走前方一兩步。依年級與文章目前呈現的能力調整難度，不在學生評語裡貼「發展階段」或「寫作動機」標籤。
 6. 使用台灣繁體中文，簡單但不幼稚；避免「情感張力、敘事節奏、論證薄弱、意象經營」等抽象術語。
+7. 找點模式結構化結果是這篇作文已完成的分析，只能作為佐證與上下文；不要重新執行找點、不要另列亮點、錯字、大綱或新建議。最終評語仍只沿用老師選入「老師想對學生說的重點」的內容。
 
 文體使用方式：
 - 老師指定的文體優先，只有「自動判斷」時才推測；不明確可用「其他／混合」，不要過度自信。
@@ -93,6 +102,11 @@ def build_enrichment_prompt(data: dict) -> str:
 老師想對學生說的重點：
 ---
 {teacher_focus}
+---
+
+已保存的找點模式結構化結果（可能未提供）：
+---
+{discovery_context}
 ---
 
 學生作文原文：

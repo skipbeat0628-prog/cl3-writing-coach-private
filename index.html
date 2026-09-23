@@ -420,7 +420,7 @@
       <button class="ghost clear-all" type="button" id="clearAllButton">全部清除</button>
     </div>
     <div class="page-title">
-      <strong>作文批改教練</strong>
+        <strong>作文批改教練</strong>
       <span id="saveStatus">內容會自動儲存在這台電腦</span>
     </div>
     <div class="top-actions">
@@ -706,6 +706,8 @@
       const importStatus = document.getElementById('importStatus');
       const replaceDialog = document.getElementById('replaceDialog');
       let lastDiscoveryGenre = '';
+      let lastDiscoveryResult = null;
+      let lastDiscoverySignature = '';
       let toastTimer;
       let saveTimer;
       let selectedMode = '';
@@ -719,6 +721,42 @@
 
       const draftKey = (name) => `cl3-essay-${ESSAY.id}-${name}`;
       const createEssayId = () => `ESSAY-${(window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`).slice(0, 8).toUpperCase()}`;
+      const discoverySignature = () => JSON.stringify({
+        grade: testGrade.value.trim(),
+        title: testTitle.value.trim(),
+        goal: testGoal.value.trim(),
+        content: testContent.value.trim()
+      });
+
+      const saveDiscoveryResult = (analysis) => {
+        lastDiscoveryResult = analysis;
+        lastDiscoverySignature = discoverySignature();
+        localStorage.setItem(draftKey('discovery-result'), JSON.stringify(analysis));
+        localStorage.setItem(draftKey('discovery-signature'), lastDiscoverySignature);
+      };
+
+      const restoreDiscoveryResult = () => {
+        const signature = localStorage.getItem(draftKey('discovery-signature')) || '';
+        if (!signature || signature !== discoverySignature()) return false;
+        try {
+          const analysis = JSON.parse(localStorage.getItem(draftKey('discovery-result')) || 'null');
+          if (!analysis || typeof analysis !== 'object') return false;
+          lastDiscoveryResult = analysis;
+          lastDiscoverySignature = signature;
+          renderAnalysis(analysis);
+          aiStatus.textContent = '已載入這篇作文先前的找點結果';
+          return true;
+        } catch (_) {
+          return false;
+        }
+      };
+
+      const clearDiscoveryResult = () => {
+        lastDiscoveryResult = null;
+        lastDiscoverySignature = '';
+        localStorage.removeItem(draftKey('discovery-result'));
+        localStorage.removeItem(draftKey('discovery-signature'));
+      };
 
       const autoGrow = (field) => {
         if (!field) return;
@@ -815,6 +853,7 @@
       };
 
       const resetFindResults = () => {
+        clearDiscoveryResult();
         lastDiscoveryGenre = '';
         genreLabel.textContent = '等待分析';
         aiStatus.textContent = '請按「開始分析」取得閱讀觀點';
@@ -990,8 +1029,14 @@
         bindTransferButtons();
       };
 
-      const loadSharedOverview = async () => {
+      const ensureDiscoveryAnalysis = async () => {
         updateEssayPreview();
+        const signature = discoverySignature();
+        if (lastDiscoveryResult && lastDiscoverySignature === signature) {
+          renderAnalysis(lastDiscoveryResult);
+          return lastDiscoveryResult;
+        }
+        if (restoreDiscoveryResult()) return lastDiscoveryResult;
         sharedSummary.textContent = '正在整理文章大意…';
         sharedIssues.innerHTML = '<p>正在檢查錯字與標點符號…</p>';
         const response = await fetch('/api/analyze', {
@@ -1001,7 +1046,9 @@
         });
         const result = await response.json();
         if (!response.ok || !result.ok) throw new Error(result.error || '文章基本分析失敗');
+        saveDiscoveryResult(result.analysis);
         renderAnalysis(result.analysis);
+        return result.analysis;
       };
 
       const analyzeEssay = async () => {
@@ -1016,14 +1063,7 @@
         aiStatus.textContent = '正在呼叫本機 Codex，通常需要 30～90 秒';
         genreLabel.textContent = '分析中';
         try {
-          const response = await fetch('/api/analyze', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(ESSAY)
-          });
-          const result = await response.json();
-          if (!response.ok || !result.ok) throw new Error(result.error || 'AI 分析失敗');
-          renderAnalysis(result.analysis);
+          await ensureDiscoveryAnalysis();
           localStorage.setItem('cl3-test-grade', ESSAY.grade);
           localStorage.setItem('cl3-test-title', ESSAY.title);
           localStorage.setItem('cl3-test-goal', ESSAY.goal);
@@ -1106,6 +1146,7 @@
               ...ESSAY,
               genre: genreSelect.value,
               discoveryGenre: lastDiscoveryGenre,
+              discoveryAnalysis: lastDiscoveryResult,
               teacherFocus: teacherFocus.value.trim()
             })
           });
@@ -1294,7 +1335,7 @@
         startAnalysisButton.disabled = true;
         startAnalysisButton.textContent = '正在整理大意與檢查文字…';
         try {
-          await loadSharedOverview();
+          if (selectedMode === 'enrich') await ensureDiscoveryAnalysis();
           if (selectedMode === 'enrich') await enrichComment();
           if (selectedMode === 'cap') await assessCap();
         } catch (error) {
@@ -1388,6 +1429,7 @@
         ['cl3-demo-comment', 'cl3-demo-score', 'cl3-teacher-focus', 'cl3-enriched-comment'].forEach((key) => localStorage.removeItem(key));
         setMode(['find', 'enrich', 'cap'].includes(localStorage.getItem('cl3-ai-mode')) ? localStorage.getItem('cl3-ai-mode') : 'find');
         updateEssayPreview();
+        restoreDiscoveryResult();
         [testContent, teacherFocus, enrichedComment, comment].forEach(autoGrow);
         saveStatus.textContent = '內容會自動儲存在這台電腦';
       } catch (_) {}

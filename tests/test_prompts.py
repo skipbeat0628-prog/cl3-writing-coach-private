@@ -55,6 +55,21 @@ class PromptContractTests(unittest.TestCase):
         self.assertIn("找點模式文體", prompt)
         self.assertIn("記敘文", prompt)
 
+    def test_enrichment_reuses_saved_discovery_without_rediscovering(self):
+        prompt = build_enrichment_prompt({
+            **BASE,
+            "teacherFocus": "肯定爸爸等我的動作",
+            "discoveryAnalysis": {
+                "genre": "記敘文",
+                "article_summary": "爸爸在門口等作者。",
+                "highlights": [{"quote": "爸爸站在門口等我", "analysis": "動作具體"}],
+            },
+        })
+        self.assertIn("已保存的找點模式結構化結果", prompt)
+        self.assertIn("爸爸站在門口等我", prompt)
+        self.assertIn("不要重新執行找點", prompt)
+        self.assertIn("肯定爸爸等我的動作", prompt)
+
     def test_child_friendly_and_creative_world_constraints_exist(self):
         prompt = build_enrichment_prompt({**BASE, "teacherFocus": "角色可以多做一個選擇", "genre": "故事／創作"})
         self.assertIn("只帶學生走前方一兩步", prompt)
